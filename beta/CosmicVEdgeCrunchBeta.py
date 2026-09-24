@@ -24,7 +24,7 @@ except Exception as exc:
     )
     raise
 
-APP_TITLE = "CosmicV EdgeCrunch Beta"
+APP_TITLE = "CosmicV EdgeCrunch Darkroom Beta"
 PREVIEW_MAX_W = 3840
 PREVIEW_MAX_H = 2160
 
@@ -169,6 +169,129 @@ def clean_rgb(
     )
     out = cv2.cvtColor(out_lab, cv2.COLOR_LAB2RGB)
     return out, mask
+
+
+def apply_darkroom(
+    rgb: np.ndarray,
+    brightness: float = 0.0,
+    contrast: float = 1.0,
+    saturation: float = 1.0,
+    warmth: float = 0.0,
+    exposure: float = 0.0,
+    gamma: float = 1.0,
+    hue_degrees: float = 0.0,
+    grayscale: bool = False,
+    sepia: bool = False,
+    invert: bool = False,
+    blur_radius: float = 0.0,
+    sharpen: float = 0.0,
+    vignette: float = 0.0,
+) -> np.ndarray:
+    """Cheap downstream darkroom operations. Neutral defaults preserve the input."""
+    x = rgb.astype(np.float32) / 255.0
+
+    exposure = float(np.clip(exposure, -2.0, 2.0))
+    brightness = float(np.clip(brightness, -1.0, 1.0))
+    contrast = float(np.clip(contrast, 0.0, 2.0))
+    saturation = float(np.clip(saturation, 0.0, 2.0))
+    warmth = float(np.clip(warmth, -1.0, 1.0))
+    gamma = float(np.clip(gamma, 0.40, 2.50))
+    hue_degrees = float(np.clip(hue_degrees, -180.0, 180.0))
+    blur_radius = float(np.clip(blur_radius, 0.0, 3.0))
+    sharpen = float(np.clip(sharpen, 0.0, 2.0))
+    vignette = float(np.clip(vignette, 0.0, 1.0))
+
+    # Exposure, brightness, contrast, gamma.
+    x *= 2.0 ** exposure
+    x += brightness * 0.35
+    x = (x - 0.5) * contrast + 0.5
+    x = np.clip(x, 0.0, 1.0)
+    x = np.power(x, 1.0 / gamma)
+
+    # Warm/cool channel balance.
+    if abs(warmth) > 1e-6:
+        x[..., 0] += 0.18 * warmth
+        x[..., 1] += 0.025 * warmth
+        x[..., 2] -= 0.18 * warmth
+        x = np.clip(x, 0.0, 1.0)
+
+    # Hue and saturation are easiest and stable in HSV.
+    u8 = np.clip(x * 255.0, 0, 255).astype(np.uint8)
+    hsv = cv2.cvtColor(u8, cv2.COLOR_RGB2HSV).astype(np.float32)
+    hsv[..., 0] = np.mod(hsv[..., 0] + hue_degrees / 2.0, 180.0)
+    hsv[..., 1] = np.clip(hsv[..., 1] * saturation, 0.0, 255.0)
+    u8 = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
+
+    if grayscale:
+        gray = cv2.cvtColor(u8, cv2.COLOR_RGB2GRAY)
+        u8 = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
+
+    if sepia:
+        f = u8.astype(np.float32)
+        # Standard sepia matrix, applied in RGB order.
+        r = np.clip(0.393 * f[..., 0] + 0.769 * f[..., 1] + 0.189 * f[..., 2], 0, 255)
+        g = np.clip(0.349 * f[..., 0] + 0.686 * f[..., 1] + 0.168 * f[..., 2], 0, 255)
+        b = np.clip(0.272 * f[..., 0] + 0.534 * f[..., 1] + 0.131 * f[..., 2], 0, 255)
+        u8 = np.stack((r, g, b), axis=-1).astype(np.uint8)
+
+    if invert:
+        u8 = 255 - u8
+
+    if blur_radius > 0.02:
+        u8 = cv2.GaussianBlur(u8, (0, 0), blur_radius)
+
+    if sharpen > 0.001:
+        base = u8.astype(np.float32)
+        soft = cv2.GaussianBlur(base, (0, 0), 1.0)
+        u8 = np.clip(base + sharpen * (base - soft), 0, 255).astype(np.uint8)
+
+    if vignette > 0.001:
+        h, w = u8.shape[:2]
+        yy = np.linspace(-1.0, 1.0, h, dtype=np.float32)[:, None]
+        xx = np.linspace(-1.0, 1.0, w, dtype=np.float32)[None, :]
+        radial = np.clip((xx * xx + yy * yy) / 1.45, 0.0, 1.0)
+        shade = 1.0 - vignette * 0.62 * radial
+        u8 = np.clip(u8.astype(np.float32) * shade[..., None], 0, 255).astype(np.uint8)
+
+    return u8
+
+
+def apply_transform(
+    image: np.ndarray,
+    rotate_quadrants: int = 0,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+) -> np.ndarray:
+    """Apply lossless quarter-turn and flip operations to RGB images or masks."""
+    out = image
+    turns = int(rotate_quadrants) % 4
+    if turns:
+        out = np.rot90(out, k=-turns)
+    if flip_horizontal:
+        out = np.flip(out, axis=1)
+    if flip_vertical:
+        out = np.flip(out, axis=0)
+    return np.ascontiguousarray(out)
+
+
+def process_rgb(
+    rgb: np.ndarray,
+    cleanup_settings: dict,
+    darkroom_settings: dict,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Run EdgeCrunch, darkroom adjustments, then geometry for preview/save."""
+    cleaned, mask = clean_rgb(rgb, **cleanup_settings)
+
+    options = dict(darkroom_settings)
+    turns = int(options.pop("rotate_quadrants", 0))
+    flip_h = bool(options.pop("flip_horizontal", False))
+    flip_v = bool(options.pop("flip_vertical", False))
+
+    cleaned = apply_darkroom(cleaned, **options)
+    original_display = apply_transform(rgb, turns, flip_h, flip_v)
+    cleaned = apply_transform(cleaned, turns, flip_h, flip_v)
+    mask = apply_transform(mask, turns, flip_h, flip_v)
+    return cleaned, mask, original_display
 
 
 def read_rgb(path: str | Path) -> np.ndarray:
@@ -450,6 +573,8 @@ class App(tk.Tk):
         self.saving = False
         self.fullscreen = False
 
+        self.rotate_quadrants = 0
+
         self._build()
         self.bind("<F11>", self._toggle_fullscreen)
         self.bind("<Escape>", self._exit_fullscreen)
@@ -601,22 +726,34 @@ class App(tk.Tk):
 
         ttk.Label(
             side,
-            text="EdgeCrunch Lab",
+            text="CosmicV Darkroom",
             font=("Segoe UI", 18, "bold"),
         ).pack(anchor="w")
 
         ttk.Label(
             side,
             text=(
-                "Experimental micro-contour cleanup. "
+                "EdgeCrunch + lightweight darkroom tools. "
                 "Drag the gold divider to compare."
             ),
             wraplength=310,
             justify="left",
         ).pack(
             anchor="w",
-            pady=(4, 16),
+            pady=(4, 10),
         )
+
+        tabs = ttk.Notebook(side)
+        tabs.pack(fill="both", expand=True)
+
+        cleanup_tab = ttk.Frame(tabs, padding=6)
+        color_tab = ttk.Frame(tabs, padding=6)
+        effects_tab = ttk.Frame(tabs, padding=6)
+        transform_tab = ttk.Frame(tabs, padding=6)
+        tabs.add(cleanup_tab, text="Cleanup")
+        tabs.add(color_tab, text="Color")
+        tabs.add(effects_tab, text="Effects")
+        tabs.add(transform_tab, text="Transform")
 
         self.edge_var = tk.DoubleVar(value=55)
         self.fragment_var = tk.DoubleVar(value=65)
@@ -626,7 +763,7 @@ class App(tk.Tk):
         self.speck_var = tk.DoubleVar(value=10)
 
         self._slider(
-            side,
+            cleanup_tab,
             "Edge crunch",
             self.edge_var,
             0,
@@ -635,7 +772,7 @@ class App(tk.Tk):
             percent=True,
         )
         self._slider(
-            side,
+            cleanup_tab,
             "Fragment sensitivity",
             self.fragment_var,
             0,
@@ -644,7 +781,7 @@ class App(tk.Tk):
             percent=True,
         )
         self._slider(
-            side,
+            cleanup_tab,
             "Structure protection",
             self.protect_var,
             0,
@@ -653,7 +790,7 @@ class App(tk.Tk):
             percent=True,
         )
         self._slider(
-            side,
+            cleanup_tab,
             "Crunch radius",
             self.radius_var,
             35,
@@ -662,7 +799,7 @@ class App(tk.Tk):
             divisor=100,
         )
         self._slider(
-            side,
+            cleanup_tab,
             "Base cleanup",
             self.base_var,
             0,
@@ -671,22 +808,137 @@ class App(tk.Tk):
             percent=True,
         )
         self._slider(
-            side,
+            cleanup_tab,
             "Speck threshold",
             self.speck_var,
             2,
             40,
             "Threshold for tiny bright/dark line fragments",
         )
-
         ttk.Button(
-            side,
-            text="Reset Beta Defaults",
+            cleanup_tab,
+            text="Reset Cleanup",
             command=self.reset_defaults,
-        ).pack(
-            fill="x",
-            pady=(4, 10),
+        ).pack(fill="x", pady=(4, 10))
+
+        self.brightness_var = tk.DoubleVar(value=0)
+        self.contrast_var = tk.DoubleVar(value=100)
+        self.saturation_var = tk.DoubleVar(value=100)
+        self.warmth_var = tk.DoubleVar(value=0)
+        self.exposure_var = tk.DoubleVar(value=0)
+        self.gamma_var = tk.DoubleVar(value=100)
+        self.hue_var = tk.DoubleVar(value=0)
+
+        self._slider(
+            color_tab, "Brightness", self.brightness_var, -100, 100,
+            "Lift or lower overall brightness", signed=True,
         )
+        self._slider(
+            color_tab, "Contrast", self.contrast_var, 0, 200,
+            "100 is neutral", percent=True,
+        )
+        self._slider(
+            color_tab, "Saturation", self.saturation_var, 0, 200,
+            "100 is neutral", percent=True,
+        )
+        self._slider(
+            color_tab, "Warmth", self.warmth_var, -100, 100,
+            "Cooler ← 0 → warmer", signed=True,
+        )
+        self._slider(
+            color_tab, "Exposure", self.exposure_var, -200, 200,
+            "Exposure compensation in stops", divisor=100, signed=True,
+        )
+        self._slider(
+            color_tab, "Gamma", self.gamma_var, 40, 250,
+            "Midtone response; 1.00 is neutral", divisor=100,
+        )
+        self._slider(
+            color_tab, "Hue", self.hue_var, -180, 180,
+            "Hue rotation in degrees", signed=True,
+        )
+        ttk.Button(
+            color_tab,
+            text="Reset Color",
+            command=self.reset_color,
+        ).pack(fill="x", pady=(4, 10))
+
+        self.gray_var = tk.BooleanVar(value=False)
+        self.sepia_var = tk.BooleanVar(value=False)
+        self.invert_var = tk.BooleanVar(value=False)
+        self.blur_var = tk.DoubleVar(value=0)
+        self.sharpen_var = tk.DoubleVar(value=0)
+        self.vignette_var = tk.DoubleVar(value=0)
+
+        for text_label, variable in (
+            ("Grayscale", self.gray_var),
+            ("Sepia", self.sepia_var),
+            ("Invert", self.invert_var),
+        ):
+            ttk.Checkbutton(
+                effects_tab,
+                text=text_label,
+                variable=variable,
+                command=self.schedule_preview,
+            ).pack(anchor="w", pady=4)
+
+        self._slider(
+            effects_tab, "Blur", self.blur_var, 0, 300,
+            "Gaussian blur radius (0.00 to 3.00 px)", divisor=100,
+        )
+        self._slider(
+            effects_tab, "Sharpen", self.sharpen_var, 0, 200,
+            "Unsharp-mask amount", percent=True,
+        )
+        self._slider(
+            effects_tab, "Vignette", self.vignette_var, 0, 100,
+            "Darken toward the frame edges", percent=True,
+        )
+        ttk.Button(
+            effects_tab,
+            text="Reset Effects",
+            command=self.reset_effects,
+        ).pack(fill="x", pady=(4, 10))
+
+        ttk.Label(
+            transform_tab,
+            text="Lossless quarter-turns and flips",
+            wraplength=300,
+        ).pack(anchor="w", pady=(0, 10))
+
+        row = ttk.Frame(transform_tab)
+        row.pack(fill="x", pady=4)
+        ttk.Button(row, text="↶ Rotate Left", command=self.rotate_left).pack(
+            side="left", expand=True, fill="x", padx=(0, 3)
+        )
+        ttk.Button(row, text="Rotate Right ↷", command=self.rotate_right).pack(
+            side="left", expand=True, fill="x", padx=(3, 0)
+        )
+
+        self.flip_h_var = tk.BooleanVar(value=False)
+        self.flip_v_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            transform_tab,
+            text="Flip Horizontal",
+            variable=self.flip_h_var,
+            command=self.schedule_preview,
+        ).pack(anchor="w", pady=5)
+        ttk.Checkbutton(
+            transform_tab,
+            text="Flip Vertical",
+            variable=self.flip_v_var,
+            command=self.schedule_preview,
+        ).pack(anchor="w", pady=5)
+        self.transform_var = tk.StringVar(value="Rotation: 0°")
+        ttk.Label(
+            transform_tab,
+            textvariable=self.transform_var,
+        ).pack(anchor="w", pady=(8, 4))
+        ttk.Button(
+            transform_tab,
+            text="Reset Transform",
+            command=self.reset_transform,
+        ).pack(fill="x", pady=(4, 10))
 
         self.status = tk.StringVar(
             value="Open one of Ganja's problem images."
@@ -698,7 +950,7 @@ class App(tk.Tk):
             justify="left",
         ).pack(
             anchor="w",
-            pady=(6, 0),
+            pady=(8, 0),
         )
 
     def _slider(
@@ -711,6 +963,7 @@ class App(tk.Tk):
         help_text,
         percent=False,
         divisor=1,
+        signed=False,
     ):
         box = ttk.Frame(parent)
         box.pack(
@@ -741,8 +994,13 @@ class App(tk.Tk):
                     text=f"{int(round(v))}%"
                 )
             elif divisor != 1:
+                number = v / divisor
                 value.configure(
-                    text=f"{v / divisor:.2f}"
+                    text=f"{number:+.2f}" if signed else f"{number:.2f}"
+                )
+            elif signed:
+                value.configure(
+                    text=f"{int(round(v)):+d}"
                 )
             else:
                 value.configure(
@@ -781,6 +1039,26 @@ class App(tk.Tk):
             ),
         )
 
+    def darkroom_settings(self) -> dict:
+        return dict(
+            brightness=self.brightness_var.get() / 100.0,
+            contrast=self.contrast_var.get() / 100.0,
+            saturation=self.saturation_var.get() / 100.0,
+            warmth=self.warmth_var.get() / 100.0,
+            exposure=self.exposure_var.get() / 100.0,
+            gamma=self.gamma_var.get() / 100.0,
+            hue_degrees=self.hue_var.get(),
+            grayscale=self.gray_var.get(),
+            sepia=self.sepia_var.get(),
+            invert=self.invert_var.get(),
+            blur_radius=self.blur_var.get() / 100.0,
+            sharpen=self.sharpen_var.get() / 100.0,
+            vignette=self.vignette_var.get() / 100.0,
+            rotate_quadrants=self.rotate_quadrants,
+            flip_horizontal=self.flip_h_var.get(),
+            flip_vertical=self.flip_v_var.get(),
+        )
+
     def reset_defaults(self) -> None:
         self.edge_var.set(55)
         self.fragment_var.set(65)
@@ -788,6 +1066,42 @@ class App(tk.Tk):
         self.radius_var.set(80)
         self.base_var.set(15)
         self.speck_var.set(10)
+        self.schedule_preview()
+
+    def reset_color(self) -> None:
+        self.brightness_var.set(0)
+        self.contrast_var.set(100)
+        self.saturation_var.set(100)
+        self.warmth_var.set(0)
+        self.exposure_var.set(0)
+        self.gamma_var.set(100)
+        self.hue_var.set(0)
+        self.schedule_preview()
+
+    def reset_effects(self) -> None:
+        self.gray_var.set(False)
+        self.sepia_var.set(False)
+        self.invert_var.set(False)
+        self.blur_var.set(0)
+        self.sharpen_var.set(0)
+        self.vignette_var.set(0)
+        self.schedule_preview()
+
+    def rotate_left(self) -> None:
+        self.rotate_quadrants = (self.rotate_quadrants - 1) % 4
+        self.transform_var.set(f"Rotation: {self.rotate_quadrants * 90}°")
+        self.schedule_preview()
+
+    def rotate_right(self) -> None:
+        self.rotate_quadrants = (self.rotate_quadrants + 1) % 4
+        self.transform_var.set(f"Rotation: {self.rotate_quadrants * 90}°")
+        self.schedule_preview()
+
+    def reset_transform(self) -> None:
+        self.rotate_quadrants = 0
+        self.flip_h_var.set(False)
+        self.flip_v_var.set(False)
+        self.transform_var.set("Rotation: 0°")
         self.schedule_preview()
 
     def open_image(self) -> None:
@@ -877,24 +1191,27 @@ class App(tk.Tk):
 
         image = self.original_preview.copy()
         settings = self.settings()
+        darkroom = self.darkroom_settings()
 
         self.status.set(
             "Processing preview..."
         )
 
         future = self.pool.submit(
-            clean_rgb,
+            process_rgb,
             image,
-            **settings,
+            settings,
+            darkroom,
         )
 
         def done(f):
             try:
-                out, mask = f.result()
+                out, mask, original_display = f.result()
                 err = None
             except Exception as exc:
                 out = None
                 mask = None
+                original_display = None
                 err = exc
 
             self.results.put(
@@ -902,6 +1219,7 @@ class App(tk.Tk):
                     "preview",
                     out,
                     mask,
+                    original_display,
                     err,
                 )
             )
@@ -943,16 +1261,18 @@ class App(tk.Tk):
 
         image = self.original_full.copy()
         settings = self.settings()
+        darkroom = self.darkroom_settings()
 
         future = self.pool.submit(
-            clean_rgb,
+            process_rgb,
             image,
-            **settings,
+            settings,
+            darkroom,
         )
 
         def done(f):
             try:
-                out, _mask = f.result()
+                out, _mask, _original_display = f.result()
                 saved = write_rgb(
                     path,
                     out,
@@ -978,7 +1298,7 @@ class App(tk.Tk):
                 msg = self.results.get_nowait()
 
                 if msg[0] == "preview":
-                    _, out, mask, err = msg
+                    _, out, mask, original_display, err = msg
                     self.preview_in_flight = False
 
                     if err:
@@ -993,9 +1313,9 @@ class App(tk.Tk):
                         self.cleaned_preview = out
                         self.mask_preview = mask
 
-                        if self.original_preview is not None:
+                        if original_display is not None:
                             self.viewer.set_images(
-                                self.original_preview,
+                                original_display,
                                 out,
                                 mask,
                             )
