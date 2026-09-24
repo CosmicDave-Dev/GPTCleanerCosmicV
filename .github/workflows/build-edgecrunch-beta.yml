@@ -33,7 +33,9 @@ jobs:
 
       - name: Install beta test dependencies
         shell: pwsh
-        run: python -m pip install --disable-pip-version-check -r requirements.txt
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check tkinterdnd2==0.6.3
 
       - name: Validate beta pipeline
         shell: pwsh
@@ -48,29 +50,43 @@ jobs:
           Copy-Item beta/CosmicVEdgeCrunchBeta.py dist-beta/CosmicV-Beta/CosmicV-EdgeCrunch-Darkroom-Beta.py
           Copy-Item beta/RUN-CosmicV-Beta.bat dist-beta/CosmicV-Beta/RUN-CosmicV-Beta.bat
 
-          $script = Get-Item dist-beta/CosmicV-Beta/CosmicV-EdgeCrunch-Darkroom-Beta.py
-          $launcher = Get-Item dist-beta/CosmicV-Beta/RUN-CosmicV-Beta.bat
-          $total = $script.Length + $launcher.Length
-          $soft = 524288
-          $hard = 1000000
+          # Vendor only the drag/drop support needed by the beta. It stays local
+          # to the ZIP and does not modify the tester's Python installation.
+          python -m pip install --disable-pip-version-check --no-deps --target dist-beta/CosmicV-Beta/_vendor tkinterdnd2==0.6.3
 
-          Write-Host "Script bytes: $($script.Length)"
-          Write-Host "Launcher bytes: $($launcher.Length)"
-          Write-Host "Total source package bytes: $total"
-
-          if ($total -gt $soft) {
-            Write-Warning "Beta source package is above the 512 KB soft target: $total bytes"
-          } else {
-            Write-Host "Size budget healthy: $total / $soft bytes soft target"
+          $tkdnd = "dist-beta/CosmicV-Beta/_vendor/tkinterdnd2/tkdnd"
+          if (Test-Path $tkdnd) {
+            Get-ChildItem $tkdnd -Directory |
+              Where-Object { $_.Name -notmatch "^win" } |
+              Remove-Item -Recurse -Force
           }
 
-          if ($total -gt $hard) {
-            Write-Error "Beta source package exceeds the 1,000,000 byte hard limit."
-            exit 1
+          $license = Get-ChildItem dist-beta/CosmicV-Beta/_vendor -Recurse -File |
+            Where-Object { $_.FullName -match "tkinterdnd2.*dist-info.*LICENSE" } |
+            Select-Object -First 1
+          if ($license) {
+            Copy-Item $license.FullName dist-beta/CosmicV-Beta/THIRD-PARTY-tkinterdnd2-LICENSE.txt
           }
 
           Compress-Archive -Path dist-beta/CosmicV-Beta/* -DestinationPath dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.zip -Force
-          Get-FileHash dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.zip -Algorithm SHA256
+
+          $zip = Get-Item dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.zip
+          $soft = 524288
+          $hard = 1000000
+          Write-Host "Final ZIP bytes: $($zip.Length)"
+
+          if ($zip.Length -gt $soft) {
+            Write-Warning "Beta ZIP is above the 512 KB soft target: $($zip.Length) bytes"
+          } else {
+            Write-Host "Size budget healthy: $($zip.Length) / $soft bytes soft target"
+          }
+
+          if ($zip.Length -gt $hard) {
+            Write-Error "Beta ZIP exceeds the 1,000,000 byte hard limit."
+            exit 1
+          }
+
+          Get-FileHash $zip.FullName -Algorithm SHA256
 
       - name: Upload beta package
         uses: actions/upload-artifact@v4
