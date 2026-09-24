@@ -2,11 +2,14 @@
 
 This is the lightweight experimental branch for Ganja/Dave testing.
 
-The beta is now distributed as a **single readable .pyw file**. It does not bundle Python, NumPy, OpenCV, or Pillow, and it does not use a self-extracting native launcher.
+The beta is distributed as a **small two-file ZIP**:
 
-Double-clicking the .pyw file launches the GUI through the tester's installed Python environment. A ZIP may be used for chat/Discord transport.
+- `RUN-CosmicV-Beta.bat`
+- `CosmicV-EdgeCrunch-Darkroom-Beta.py`
 
-This replaces the earlier thin native EXE beta, which was retired after Microsoft Defender heuristics flagged its embedded-script/extract-and-launch behavior.
+Extract the ZIP and double-click the BAT launcher. The launcher explicitly invokes the installed Python interpreter, so it does not depend on Windows `.py` or `.pyw` file associations.
+
+This replaces both the earlier self-extracting native EXE beta and the single `.pyw` experiment. The native EXE triggered Defender heuristics, while `.pyw` proved unreliable on machines where Windows had no Python file association.
 
 ## What is new
 
@@ -53,11 +56,11 @@ This requirement is deliberate for rapid beta iteration. The normal public relea
 
 The beta is deliberately kept small because it relies on the tester's already-installed Python/OpenCV/NumPy/Pillow environment.
 
-- Distribution: single `.pyw` file, optionally transported inside ZIP
+- Distribution: ZIP containing one BAT launcher and one readable Python script
 - Soft target: 512 KB
 - Hard ceiling: 1,000,000 bytes
 - CI fails packaging if the beta file exceeds the hard ceiling
 
-The native self-extracting beta launcher is retired and is no longer built.
+The native self-extracting beta launcher and the `.pyw` distribution are retired and are no longer built.
 
 The full standalone public release remains a separate distribution track.
