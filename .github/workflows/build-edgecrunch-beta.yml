@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "beta/CosmicVEdgeCrunchBeta.py"
+      - "beta/RUN-CosmicV-Beta.bat"
       - "beta/README.md"
       - "beta/smoke_test.py"
       - "requirements.txt"
@@ -16,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  package-pyw-beta:
+  package-beta:
     runs-on: windows-latest
 
     steps:
@@ -40,35 +41,41 @@ jobs:
           python -m py_compile beta/CosmicVEdgeCrunchBeta.py
           python beta/smoke_test.py
 
-      - name: Prepare single-file PYW beta
+      - name: Prepare click-to-run beta package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist-beta | Out-Null
-          Copy-Item beta/CosmicVEdgeCrunchBeta.py dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.pyw
+          New-Item -ItemType Directory -Force -Path dist-beta/CosmicV-Beta | Out-Null
+          Copy-Item beta/CosmicVEdgeCrunchBeta.py dist-beta/CosmicV-Beta/CosmicV-EdgeCrunch-Darkroom-Beta.py
+          Copy-Item beta/RUN-CosmicV-Beta.bat dist-beta/CosmicV-Beta/RUN-CosmicV-Beta.bat
 
-          $file = Get-Item dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.pyw
-          $size = $file.Length
+          $script = Get-Item dist-beta/CosmicV-Beta/CosmicV-EdgeCrunch-Darkroom-Beta.py
+          $launcher = Get-Item dist-beta/CosmicV-Beta/RUN-CosmicV-Beta.bat
+          $total = $script.Length + $launcher.Length
           $soft = 524288
           $hard = 1000000
 
-          Write-Host "PYW size: $size bytes"
-          Get-FileHash $file.FullName -Algorithm SHA256
+          Write-Host "Script bytes: $($script.Length)"
+          Write-Host "Launcher bytes: $($launcher.Length)"
+          Write-Host "Total source package bytes: $total"
 
-          if ($size -gt $soft) {
-            Write-Warning "Beta file is above the 512 KB soft target: $size bytes"
+          if ($total -gt $soft) {
+            Write-Warning "Beta source package is above the 512 KB soft target: $total bytes"
           } else {
-            Write-Host "Size budget healthy: $size / $soft bytes soft target"
+            Write-Host "Size budget healthy: $total / $soft bytes soft target"
           }
 
-          if ($size -gt $hard) {
-            Write-Error "Beta file exceeds the 1,000,000 byte hard limit."
+          if ($total -gt $hard) {
+            Write-Error "Beta source package exceeds the 1,000,000 byte hard limit."
             exit 1
           }
+
+          Compress-Archive -Path dist-beta/CosmicV-Beta/* -DestinationPath dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.zip -Force
+          Get-FileHash dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.zip -Algorithm SHA256
 
       - name: Upload beta package
         uses: actions/upload-artifact@v4
         with:
-          name: CosmicV-EdgeCrunch-Darkroom-Beta-PYW
-          path: dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.pyw
+          name: CosmicV-EdgeCrunch-Darkroom-Beta
+          path: dist-beta/CosmicV-EdgeCrunch-Darkroom-Beta.zip
           if-no-files-found: error
-          compression-level: 9
+          compression-level: 0
