@@ -4,10 +4,16 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "GPTCleanerCosmicV.py"
+      - "requirements.txt"
+      - "version_info.txt"
+      - "assets/**"
+      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -16,6 +22,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -53,11 +61,79 @@ jobs:
           Copy-Item "dist/GPTCleanerCosmicV.exe" "release/GPTCleanerCosmicV.exe"
           Copy-Item "LICENSE" "release/LICENSE.txt"
           Copy-Item "docs/WINDOWS-EXE-INSTALL.txt" "release/README.txt"
+          Compress-Archive -Force `
+            -Path "release/GPTCleanerCosmicV.exe","release/LICENSE.txt","release/README.txt" `
+            -DestinationPath "GPTCleanerCosmicV-v0.2.0-Windows-x64.zip"
 
-      - name: Upload Windows package
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: GPTCleanerCosmicV-v0.2.0-Windows-x64
-          path: release/*
+          path: |
+            release/*
+            GPTCleanerCosmicV-v0.2.0-Windows-x64.zip
           if-no-files-found: error
           compression-level: 6
+
+      - name: Prepare release notes
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash "release/GPTCleanerCosmicV.exe" -Algorithm SHA256).Hash.ToLower()
+          @"
+          GPTCleaner CosmicV is a portable Windows application for subtle artifact removal in AI-generated images. It is intended for image editors who want precise control without flattening meaningful structure.
+
+          ## v0.2.0
+
+          - Draggable original/cleaned overlay comparator
+          - Native high-DPI Windows rendering
+          - 1440p and 2160p-aware interface
+          - Preview processing up to 3840 x 2160
+          - Maximized startup on Windows
+          - F11 fullscreen comparison mode
+          - Improved preview-job handling
+          - Same CosmicV cleaning core
+
+          ## Install
+
+          Download **GPTCleanerCosmicV.exe** and run it. Python, OpenCV, NumPy, and Pillow are bundled into the standalone executable.
+
+          Windows SmartScreen may warn because the executable is not code-signed.
+
+          ## Controls
+
+          **Cleanup strength** controls the overall amount of cleanup.
+
+          **Patch cleanup** controls patch-based reconstruction strength.
+
+          **Texture window** controls the scale used to identify fine synthetic-looking texture.
+
+          **Edge protection** helps preserve meaningful image structure and strong edges.
+
+          **Speck threshold** controls how strongly isolated bright or dark specks are targeted.
+
+          Drag the gold divider over the image to compare original and cleaned pixels directly.
+
+          **EXE SHA-256:** `$hash`
+          "@ | Set-Content -Encoding UTF8 "release-notes.md"
+
+      - name: Update rolling GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "AI_Image_Artifact_Removal" `
+            "release/GPTCleanerCosmicV.exe" `
+            "GPTCleanerCosmicV-v0.2.0-Windows-x64.zip" `
+            --clobber
+          gh release edit "AI_Image_Artifact_Removal" `
+            --title "GPTCleaner CosmicV v0.2.0" `
+            --notes-file "release-notes.md" `
+            --latest
+
+      - name: Move rolling release tag to this commit
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "AI_Image_Artifact_Removal" "$env:GITHUB_SHA"
+          git push origin "refs/tags/AI_Image_Artifact_Removal" --force
