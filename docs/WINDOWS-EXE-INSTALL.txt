@@ -1,0 +1,69 @@
+GPTCleaner CosmicV
+Windows EXE - Install & Run Guide
+=================================
+
+GPTCleaner CosmicV is a portable Windows application.
+
+You do NOT need to install Python.
+You do NOT need to install OpenCV, NumPy, Pillow, or other dependencies.
+Everything needed to run the program is bundled inside the EXE.
+
+QUICK START
+-----------
+
+1. Download the GPTCleanerCosmicV Windows ZIP.
+2. Right-click the ZIP and choose "Extract All..."
+3. Open the extracted folder.
+4. Double-click GPTCleanerCosmicV.exe
+
+NO INSTALLER IS REQUIRED
+------------------------
+
+GPTCleaner CosmicV is portable software. Keep the extracted folder anywhere
+convenient, such as Desktop, Documents, or another drive.
+
+FIRST LAUNCH
+------------
+
+The first launch may take several seconds while Windows and antivirus software
+inspect the new executable.
+
+WINDOWS SMARTSCREEN
+-------------------
+
+Because an independently built EXE may not yet have an established Windows
+reputation, SmartScreen may display "Windows protected your PC".
+
+If you received the file from a source you trust, click "More info", then
+"Run anyway".
+
+USING THE PROGRAM
+-----------------
+
+1. Click Open Image.
+2. Select an image.
+3. Adjust the cleanup controls.
+4. Compare Original and Cleaned Preview.
+5. Click Save As...
+6. Choose an output location.
+
+The saved image is processed from the original full-resolution image.
+
+UNINSTALLING
+------------
+
+Close the program and delete GPTCleanerCosmicV.exe or its containing folder.
+There is no Python environment or package installation to remove.
+
+PRIVACY
+-------
+
+GPTCleaner CosmicV processes images locally. The application does not require
+an account or cloud upload service to clean images.
+
+LICENSE
+-------
+
+See LICENSE.txt included with the release.
+
+Enjoy cleaning the crunch.
