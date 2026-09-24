@@ -113,7 +113,7 @@ jobs:
 
           Drag the gold divider over the image to compare original and cleaned pixels directly.
 
-          **EXE SHA-256:** `$hash`
+          **EXE SHA-256:** $hash
           "@ | Set-Content -Encoding UTF8 "release-notes.md"
 
       - name: Update rolling GitHub release
