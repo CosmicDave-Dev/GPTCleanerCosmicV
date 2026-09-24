@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ctypes
-from ctypes import wintypes
 import queue
 import sys
 import tkinter as tk
@@ -9,6 +8,18 @@ import tkinter.font as tkfont
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+
+# Optional beta-local vendor directory. The packaged Windows beta places
+# tkinterdnd2 here so Explorer drag/drop needs no global installation.
+_VENDOR_DIR = Path(__file__).resolve().parent / "_vendor"
+if _VENDOR_DIR.is_dir():
+    sys.path.insert(0, str(_VENDOR_DIR))
+
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+except Exception:
+    DND_FILES = None
+    TkinterDnD = None
 
 try:
     import cv2
@@ -647,7 +658,7 @@ class HueWheel(tk.Canvas):
         )
 
 
-class App(tk.Tk):
+class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
     PRESETS = {
         "Conservative": dict(edge=25, fragment=45, protect=95, radius=65, base=8, speck=8),
         "Balanced": dict(edge=55, fragment=65, protect=90, radius=80, base=15, speck=10),
@@ -681,11 +692,6 @@ class App(tk.Tk):
         self.saving = False
         self.fullscreen = False
         self.rotate_quadrants = 0
-
-        self._drop_hwnd = None
-        self._old_wndproc = None
-        self._wndproc_cb = None
-        self._wndproc_type = None
 
         # Cleanup.
         self.edge_var = tk.DoubleVar(value=55)
@@ -726,7 +732,7 @@ class App(tk.Tk):
         self.bind("<Escape>", self._exit_fullscreen)
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.after(50, self._poll)
-        self.after(700, self._enable_windows_drop)
+        self.after(250, self._enable_file_drop)
 
         if sys.platform == "win32":
             self.after(0, lambda: self.state("zoomed"))
@@ -887,7 +893,14 @@ class App(tk.Tk):
             toolbar,
             text="Target Mask",
             command=self.toggle_mask,
-        ).pack(side="left", padx=3)
+        ).pack(side="left", padx=(3, 0))
+        self._info(
+            toolbar,
+            "Target Mask",
+            "Shows the detector's cleanup mask over the processed side. "
+            "Brighter red/magenta areas are receiving more EdgeCrunch cleanup. "
+            "It is a diagnostic view only and is never baked into Save Image.",
+        ).pack(side="left", padx=(1, 3))
 
         ttk.Button(
             toolbar,
@@ -1122,6 +1135,21 @@ class App(tk.Tk):
         ).pack(fill="x", pady=(4, 10))
 
         # COLOR TAB
+        color_top = tk.Frame(color_tab, bg=BG)
+        color_top.pack(fill="x", pady=(0, 6))
+        tk.Label(
+            color_top,
+            text="COLOR LAB",
+            bg=BG,
+            fg=CYAN,
+            font=("Segoe UI", 14, "bold"),
+        ).pack(side="left")
+        ttk.Button(
+            color_top,
+            text="Reset Color",
+            command=self.reset_color,
+        ).pack(side="right")
+
         hue_box = tk.Frame(color_tab, bg=BG)
         hue_box.pack(fill="x", pady=(0, 8))
         hue_head = tk.Frame(hue_box, bg=BG)
@@ -1196,12 +1224,6 @@ class App(tk.Tk):
             divisor=100,
             info="Changes midtone response while preserving the endpoints more than brightness does.",
         )
-        ttk.Button(
-            color_tab,
-            text="Reset Color",
-            command=self.reset_color,
-        ).pack(fill="x", pady=(4, 10))
-
         # EFFECTS TAB
         for text_label, variable, help_text in (
             ("Grayscale", self.gray_var, "Converts the processed image to monochrome."),
@@ -1499,103 +1521,41 @@ class App(tk.Tk):
             else "View: 1:1 pixel scale (centered)."
         )
 
-    def _enable_windows_drop(self) -> None:
-        if sys.platform != "win32":
+    def _enable_file_drop(self) -> None:
+        if TkinterDnD is None or DND_FILES is None:
+            self.status.set(
+                "Ready. Explorer drag/drop support is unavailable; Open Image still works."
+            )
             return
+
         try:
-            hwnd = self.winfo_id()
-            user32 = ctypes.windll.user32
-            shell32 = ctypes.windll.shell32
-
-            user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
-            user32.GetWindowLongPtrW.restype = ctypes.c_void_p
-            user32.SetWindowLongPtrW.argtypes = [
-                wintypes.HWND,
-                ctypes.c_int,
-                ctypes.c_void_p,
-            ]
-            user32.SetWindowLongPtrW.restype = ctypes.c_void_p
-            user32.CallWindowProcW.argtypes = [
-                ctypes.c_void_p,
-                wintypes.HWND,
-                wintypes.UINT,
-                wintypes.WPARAM,
-                wintypes.LPARAM,
-            ]
-            user32.CallWindowProcW.restype = ctypes.c_ssize_t
-
-            shell32.DragAcceptFiles.argtypes = [
-                wintypes.HWND,
-                wintypes.BOOL,
-            ]
-            shell32.DragQueryFileW.argtypes = [
-                wintypes.HANDLE,
-                wintypes.UINT,
-                wintypes.LPWSTR,
-                wintypes.UINT,
-            ]
-            shell32.DragQueryFileW.restype = wintypes.UINT
-            shell32.DragFinish.argtypes = [wintypes.HANDLE]
-
-            self._drop_hwnd = hwnd
-            self._old_wndproc = user32.GetWindowLongPtrW(hwnd, -4)
-            self._wndproc_type = ctypes.WINFUNCTYPE(
-                ctypes.c_ssize_t,
-                wintypes.HWND,
-                wintypes.UINT,
-                wintypes.WPARAM,
-                wintypes.LPARAM,
-            )
-
-            def wndproc(h, msg, wparam, lparam):
-                if msg == 0x0233:  # WM_DROPFILES
-                    try:
-                        count = shell32.DragQueryFileW(
-                            ctypes.c_void_p(wparam),
-                            0xFFFFFFFF,
-                            None,
-                            0,
-                        )
-                        if count:
-                            length = shell32.DragQueryFileW(
-                                ctypes.c_void_p(wparam),
-                                0,
-                                None,
-                                0,
-                            )
-                            buf = ctypes.create_unicode_buffer(length + 1)
-                            shell32.DragQueryFileW(
-                                ctypes.c_void_p(wparam),
-                                0,
-                                buf,
-                                length + 1,
-                            )
-                            path = buf.value
-                            self.after(0, lambda p=path: self.load_image(p))
-                    finally:
-                        shell32.DragFinish(ctypes.c_void_p(wparam))
-                    return 0
-
-                return user32.CallWindowProcW(
-                    ctypes.c_void_p(self._old_wndproc),
-                    h,
-                    msg,
-                    wparam,
-                    lparam,
-                )
-
-            self._wndproc_cb = self._wndproc_type(wndproc)
-            user32.SetWindowLongPtrW(
-                hwnd,
-                -4,
-                ctypes.cast(self._wndproc_cb, ctypes.c_void_p),
-            )
-            shell32.DragAcceptFiles(hwnd, True)
-            self.status.set("Ready. Drag-and-drop enabled.")
+            self.drop_target_register(DND_FILES)
+            self.dnd_bind("<<Drop>>", self._on_file_drop)
+            self.status.set("Ready. Windows Explorer drag-and-drop enabled.")
         except Exception as exc:
             self.status.set(
                 f"Ready. Explorer drag/drop unavailable ({exc}); Open Image still works."
             )
+
+    def _on_file_drop(self, event):
+        try:
+            paths = self.tk.splitlist(event.data)
+        except Exception:
+            paths = (str(event.data),)
+
+        for item in paths:
+            path = str(item).strip().strip("{}")
+            if not path:
+                continue
+            candidate = Path(path)
+            if candidate.suffix.lower() in {
+                ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"
+            }:
+                self.after_idle(lambda p=str(candidate): self.load_image(p))
+                self.status.set(f"Dropped: {candidate.name}")
+                return
+
+        self.status.set("Drop ignored: no supported image file was found.")
 
     def open_image(self) -> None:
         path = filedialog.askopenfilename(
@@ -1859,27 +1819,7 @@ class App(tk.Tk):
             self.attributes("-fullscreen", False)
         return "break"
 
-    def _restore_drop_hook(self) -> None:
-        if (
-            sys.platform == "win32"
-            and self._drop_hwnd
-            and self._old_wndproc
-        ):
-            try:
-                ctypes.windll.shell32.DragAcceptFiles(
-                    self._drop_hwnd,
-                    False,
-                )
-                ctypes.windll.user32.SetWindowLongPtrW(
-                    self._drop_hwnd,
-                    -4,
-                    ctypes.c_void_p(self._old_wndproc),
-                )
-            except Exception:
-                pass
-
     def _close(self) -> None:
-        self._restore_drop_hook()
         self.pool.shutdown(wait=False, cancel_futures=True)
         self.destroy()
 
