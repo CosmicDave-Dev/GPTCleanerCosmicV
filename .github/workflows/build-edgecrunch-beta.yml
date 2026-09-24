@@ -29,7 +29,53 @@ jobs:
 
       - name: Validate beta Python
         shell: pwsh
-        run: python -m py_compile beta/CosmicVEdgeCrunchBeta.py
+        run: |
+          python -m py_compile beta/CosmicVEdgeCrunchBeta.py
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          @'
+import runpy
+import numpy as np
+
+ns = runpy.run_path("beta/CosmicVEdgeCrunchBeta.py", run_name="cosmicv_beta_test")
+image = np.zeros((96, 128, 3), dtype=np.uint8)
+image[..., 0] = np.arange(128, dtype=np.uint8)[None, :]
+image[..., 1] = 96
+image[..., 2] = np.arange(96, dtype=np.uint8)[:, None]
+
+cleanup = dict(
+    edge_crunch=0.75,
+    fragment_sensitivity=0.60,
+    structure_protection=0.50,
+    crunch_radius=1.10,
+    base_cleanup=0.40,
+    speck_threshold=10,
+)
+darkroom = dict(
+    brightness=0.10,
+    contrast=1.05,
+    saturation=1.20,
+    warmth=0.15,
+    exposure=0.10,
+    gamma=1.05,
+    hue_degrees=12.0,
+    grayscale=False,
+    sepia=False,
+    invert=False,
+    blur_radius=0.0,
+    sharpen=0.25,
+    vignette=0.15,
+    rotate_quadrants=1,
+    flip_horizontal=True,
+    flip_vertical=False,
+)
+
+out, mask, original = ns["process_rgb"](image, cleanup, darkroom)
+assert out.dtype == np.uint8
+assert out.shape == (128, 96, 3)
+assert original.shape == out.shape
+assert mask.shape == (128, 96)
+print("CosmicV beta image-pipeline smoke test passed.")
+'@ | python -
 
       - name: Enable MSVC build tools
         uses: ilammy/msvc-dev-cmd@v1
@@ -41,12 +87,28 @@ jobs:
           rc.exe /nologo launcher.rc
           cl.exe /nologo /O1 /MT /DUNICODE /D_UNICODE /Fe:CosmicV-EdgeCrunch-Beta.exe launcher.c launcher.res user32.lib shell32.lib /link /SUBSYSTEM:WINDOWS
 
-      - name: Report beta build
+      - name: Enforce beta size budget
         shell: pwsh
         working-directory: beta
         run: |
-          Get-Item CosmicV-EdgeCrunch-Beta.exe | Select-Object Name,Length
+          $file = Get-Item CosmicV-EdgeCrunch-Beta.exe
+          $size = $file.Length
+          $soft = 524288
+          $hard = 1000000
+
+          $file | Select-Object Name,Length
           Get-FileHash CosmicV-EdgeCrunch-Beta.exe -Algorithm SHA256
+
+          if ($size -gt $soft) {
+            Write-Warning "Beta EXE is above the 512 KB soft target: $size bytes"
+          } else {
+            Write-Host "Size budget healthy: $size / $soft bytes soft target"
+          }
+
+          if ($size -gt $hard) {
+            Write-Error "Beta EXE exceeds the 1,000,000 byte hard limit."
+            exit 1
+          }
 
       - name: Upload beta EXE
         uses: actions/upload-artifact@v4
