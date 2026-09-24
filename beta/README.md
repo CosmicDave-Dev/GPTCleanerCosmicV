@@ -75,10 +75,15 @@ The current beta adds a cybercore night interface and a simplified **Quick** tab
 - Fit and 1:1 viewer modes
 - Save Image / Save Comparison / Clear
 - Numeric type-or-paste boxes beside all slider controls
-- Native Windows Explorer image drag-and-drop, with no extra Python dependency
+- Windows Explorer image drag-and-drop via beta-local vendored tkinterdnd2 support
 - Hue color wheel plus precise numeric hue input
 - Adjustment Mix control for alpha-like Color/Effects intensity
 - Clickable info icons throughout the controls
 - Cyan before/after divider and dark cybercore palette
 
 The advanced Cleanup, Color, Effects, and Transform tabs remain available behind the simple Quick view.
+
+
+### Drag-and-drop note
+
+The beta ZIP vendors tkinterdnd2 locally for Windows Explorer drag-and-drop. It does not install that package into the tester's global Python environment.
