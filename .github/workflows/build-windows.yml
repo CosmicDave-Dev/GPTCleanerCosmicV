@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "GPTCleanerCosmicV.py"
+      - "beta/CosmicVEdgeCrunchBeta.py"
       - "requirements.txt"
       - "version_info.txt"
       - "assets/**"
@@ -37,7 +37,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install pyinstaller
+          python -m pip install tkinterdnd2==0.6.3 pyinstaller
+
+      - name: Validate final source
+        shell: pwsh
+        run: |
+          python -m py_compile beta/CosmicVEdgeCrunchBeta.py
+          python beta/smoke_test.py
 
       - name: Build standalone EXE
         shell: pwsh
@@ -52,7 +58,8 @@ jobs:
             --icon "assets/CosmicDaveIcon.ico" `
             --version-file "version_info.txt" `
             --hidden-import "PIL._tkinter_finder" `
-            "GPTCleanerCosmicV.py"
+            --collect-all "tkinterdnd2" `
+            "beta/CosmicVEdgeCrunchBeta.py"
 
       - name: Stage release files
         shell: pwsh
@@ -80,38 +87,26 @@ jobs:
         run: |
           $hash = (Get-FileHash "release/GPTCleanerCosmicV.exe" -Algorithm SHA256).Hash.ToLower()
           @"
-          GPTCleaner CosmicV is a portable Windows application for subtle artifact removal in AI-generated images. It is intended for image editors who want precise control without flattening meaningful structure.
+          CosmicV EdgeCrunch Darkroom is a portable Windows application for AI-image artifact cleanup and darkroom adjustment.
 
-          ## v0.2.0
+          ## Final Darkroom build
 
-          - Draggable original/cleaned overlay comparator
+          - EdgeCrunch cleanup with curated presets and advanced controls
+          - Before/after draggable comparison
+          - Target-mask diagnostic view
+          - Color Lab with hue wheel, brightness, contrast, saturation, warmth, exposure, gamma, and adjustment mix
+          - Effects and lossless rotate/flip controls
+          - Scrollable Color tab for lower-resolution displays
           - Native high-DPI Windows rendering
-          - 1440p and 2160p-aware interface
-          - Preview processing up to 3840 x 2160
-          - Maximized startup on Windows
-          - F11 fullscreen comparison mode
-          - Improved preview-job handling
-          - Same CosmicV cleaning core
+          - Explorer drag-and-drop
+          - Full-resolution save and comparison export
+          - Standalone Windows EXE with Python, OpenCV, NumPy, Pillow, and tkinterdnd2 bundled
 
           ## Install
 
-          Download **GPTCleanerCosmicV.exe** and run it. Python, OpenCV, NumPy, and Pillow are bundled into the standalone executable.
+          Download **GPTCleanerCosmicV.exe** and run it. No separate Python install is required.
 
           Windows SmartScreen may warn because the executable is not code-signed.
-
-          ## Controls
-
-          **Cleanup strength** controls the overall amount of cleanup.
-
-          **Patch cleanup** controls patch-based reconstruction strength.
-
-          **Texture window** controls the scale used to identify fine synthetic-looking texture.
-
-          **Edge protection** helps preserve meaningful image structure and strong edges.
-
-          **Speck threshold** controls how strongly isolated bright or dark specks are targeted.
-
-          Drag the gold divider over the image to compare original and cleaned pixels directly.
 
           **EXE SHA-256:** $hash
           "@ | Set-Content -Encoding UTF8 "release-notes.md"
@@ -126,7 +121,7 @@ jobs:
             "GPTCleanerCosmicV-v0.2.0-Windows-x64.zip" `
             --clobber
           gh release edit "AI_Image_Artifact_Removal" `
-            --title "GPTCleaner CosmicV v0.2.0" `
+            --title "CosmicV EdgeCrunch Darkroom" `
             --notes-file "release-notes.md" `
             --latest
 
@@ -138,4 +133,4 @@ jobs:
           git tag -f "AI_Image_Artifact_Removal" "$env:GITHUB_SHA"
           git push origin "refs/tags/AI_Image_Artifact_Removal" --force
 
-# Rolling release publisher: v0.2.0
+# Rolling release publisher: EdgeCrunch Darkroom final
