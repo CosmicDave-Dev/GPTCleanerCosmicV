@@ -67,3 +67,26 @@ LICENSE
 See LICENSE.txt included with the release.
 
 Enjoy cleaning the crunch.
+
+
+OVERLAY COMPARISON
+------------------
+
+GPTCleaner CosmicV v0.2 uses a draggable overlay viewer.
+
+The cleaned image is underneath the original image. Drag the gold vertical divider
+across the image to compare the same pixels before and after cleaning.
+
+Press F11 for fullscreen comparison. Press Escape to leave fullscreen.
+
+HIGH-RESOLUTION DISPLAYS
+------------------------
+
+The v0.2 interface is DPI-aware on modern Windows systems and is designed to use
+1440p and 2160p displays properly. Preview processing supports images up to
+3840 x 2160 before downscaling for responsiveness.
+
+CURRENT VERSION
+---------------
+
+v0.2.0
