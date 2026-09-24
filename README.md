@@ -6,7 +6,7 @@ GPTCleaner CosmicV uses an independent processing pipeline built around luminanc
 
 ## Features
 
-- Side-by-side original and cleaned preview
+- Draggable original/cleaned overlay comparator
 - Adjustable cleanup strength
 - Patch-based cleanup control
 - Texture-scale control
@@ -16,6 +16,8 @@ GPTCleaner CosmicV uses an independent processing pipeline built around luminanc
 - Local processing only
 - PNG, JPEG, WebP, BMP, and TIFF input support
 - PNG, JPEG, and WebP output
+- High-DPI 1440p/2160p-aware Windows UI
+- Fullscreen comparison mode (F11)
 - Portable Windows EXE build support
 
 ## Quick start from Python
@@ -62,7 +64,7 @@ See [`docs/WINDOWS-EXE-INSTALL.txt`](docs/WINDOWS-EXE-INSTALL.txt) for end-user 
 
 **Speck threshold** controls how strong an isolated bright or dark point must be before it is targeted.
 
-The on-screen preview is reduced for responsiveness. Saving processes the original full-resolution image.
+The comparison viewer can process previews up to 3840×2160 and uses a draggable overlay divider. Saving always processes the original full-resolution image.
 
 ## How the core works
 
