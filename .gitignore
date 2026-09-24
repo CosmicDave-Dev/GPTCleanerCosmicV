@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+GPTCleanerCosmicV-env/
+.build-env/
+build/
+dist/
+*.spec
+.DS_Store
+desktop.ini
