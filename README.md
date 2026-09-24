@@ -40,11 +40,7 @@ No image is uploaded to a cloud service by the application. Processing occurs lo
 
 Download the current standalone Windows build from the [`AI_Image_Artifact_Removal` release](https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/tag/AI_Image_Artifact_Removal).
 
-v0.2.0 EXE SHA-256:
-
-```text
-d81fe81ba41ad831e656cc1474cb73b0063f5abd3cd22affe9d813db04b2cfbd
-```
+The current EXE SHA-256 checksum is published on the release page alongside the downloadable build.
 
 ## Windows standalone EXE
 

@@ -137,3 +137,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "AI_Image_Artifact_Removal" "$env:GITHUB_SHA"
           git push origin "refs/tags/AI_Image_Artifact_Removal" --force
+
+# Rolling release publisher: v0.2.0
