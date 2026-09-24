@@ -29,14 +29,14 @@ except Exception as exc:
     root = tk.Tk()
     root.withdraw()
     messagebox.showerror(
-        "CosmicV EdgeCrunch Beta",
+        "CosmicV EdgeCrunch Darkroom",
         "This beta uses your installed Python environment and could not load one of its dependencies.\n\n"
         "Required: numpy, opencv-python-headless, pillow\n\n"
         f"Details: {exc}",
     )
     raise
 
-APP_TITLE = "CosmicV EdgeCrunch Darkroom Beta"
+APP_TITLE = "CosmicV EdgeCrunch Darkroom"
 PREVIEW_MAX_W = 3840
 PREVIEW_MAX_H = 2160
 
