@@ -64,3 +64,21 @@ The beta is deliberately kept small because it relies on the tester's already-in
 The native self-extracting beta launcher and the `.pyw` distribution are retired and are no longer built.
 
 The full standalone public release remains a separate distribution track.
+
+
+## Current UI beta
+
+The current beta adds a cybercore night interface and a simplified **Quick** tab inspired by the reference cleaner workflow.
+
+- Quick tab opens first
+- Four cleanup presets: Conservative / Balanced / Strong / Aggressive
+- Fit and 1:1 viewer modes
+- Save Image / Save Comparison / Clear
+- Numeric type-or-paste boxes beside all slider controls
+- Native Windows Explorer image drag-and-drop, with no extra Python dependency
+- Hue color wheel plus precise numeric hue input
+- Adjustment Mix control for alpha-like Color/Effects intensity
+- Clickable info icons throughout the controls
+- Cyan before/after divider and dark cybercore palette
+
+The advanced Cleanup, Color, Effects, and Transform tabs remain available behind the simple Quick view.
