@@ -1,0 +1,57 @@
+name: Build EdgeCrunch Beta Thin EXE
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "beta/**"
+      - "assets/CosmicDaveIcon.ico"
+      - ".github/workflows/build-edgecrunch-beta.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-thin-beta:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python for syntax check
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+
+      - name: Validate beta Python
+        shell: pwsh
+        run: python -m py_compile beta/CosmicVEdgeCrunchBeta.py
+
+      - name: Enable MSVC build tools
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Compile tiny native launcher
+        shell: cmd
+        working-directory: beta
+        run: |
+          rc.exe /nologo launcher.rc
+          cl.exe /nologo /O1 /MT /DUNICODE /D_UNICODE /Fe:CosmicV-EdgeCrunch-Beta.exe launcher.c launcher.res user32.lib shell32.lib /link /SUBSYSTEM:WINDOWS
+
+      - name: Report beta build
+        shell: pwsh
+        working-directory: beta
+        run: |
+          Get-Item CosmicV-EdgeCrunch-Beta.exe | Select-Object Name,Length
+          Get-FileHash CosmicV-EdgeCrunch-Beta.exe -Algorithm SHA256
+
+      - name: Upload beta EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: CosmicV-EdgeCrunch-Beta
+          path: beta/CosmicV-EdgeCrunch-Beta.exe
+          if-no-files-found: error
+          compression-level: 9
