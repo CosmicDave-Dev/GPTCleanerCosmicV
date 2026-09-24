@@ -1507,9 +1507,35 @@ class App(tk.Tk):
             user32 = ctypes.windll.user32
             shell32 = ctypes.windll.shell32
 
+            user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
             user32.GetWindowLongPtrW.restype = ctypes.c_void_p
+            user32.SetWindowLongPtrW.argtypes = [
+                wintypes.HWND,
+                ctypes.c_int,
+                ctypes.c_void_p,
+            ]
             user32.SetWindowLongPtrW.restype = ctypes.c_void_p
+            user32.CallWindowProcW.argtypes = [
+                ctypes.c_void_p,
+                wintypes.HWND,
+                wintypes.UINT,
+                wintypes.WPARAM,
+                wintypes.LPARAM,
+            ]
             user32.CallWindowProcW.restype = ctypes.c_ssize_t
+
+            shell32.DragAcceptFiles.argtypes = [
+                wintypes.HWND,
+                wintypes.BOOL,
+            ]
+            shell32.DragQueryFileW.argtypes = [
+                wintypes.HANDLE,
+                wintypes.UINT,
+                wintypes.LPWSTR,
+                wintypes.UINT,
+            ]
+            shell32.DragQueryFileW.restype = wintypes.UINT
+            shell32.DragFinish.argtypes = [wintypes.HANDLE]
 
             self._drop_hwnd = hwnd
             self._old_wndproc = user32.GetWindowLongPtrW(hwnd, -4)
