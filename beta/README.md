@@ -17,6 +17,11 @@ The beta intentionally **does not bundle Python, NumPy, OpenCV, or Pillow**. The
 - High-DPI 1440p/2160p-aware UI
 - Preview processing up to 3840×2160
 - F11 fullscreen comparison
+- Brightness, contrast, saturation, warmth, exposure, gamma, and hue
+- Grayscale, sepia, invert, blur, sharpen, and vignette
+- 90° rotate and horizontal/vertical flip
+- Tabbed Cleanup / Color / Effects / Transform controls
+- Thin-build size budget: 512 KB target, 1 MB hard ceiling
 
 ## Default beta controls
 
@@ -38,3 +43,14 @@ pillow
 ```
 
 This requirement is deliberate for rapid beta iteration. The normal public release remains the self-contained standalone build.
+
+
+## Beta size policy
+
+The thin beta is deliberately kept small because it relies on the tester's already-installed Python/OpenCV/NumPy/Pillow environment.
+
+- Soft target: 512 KB
+- Hard ceiling: 1,000,000 bytes
+- CI fails the beta build if the launcher exceeds the hard ceiling.
+
+The full standalone public build remains a separate distribution track.
