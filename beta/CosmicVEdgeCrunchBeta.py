@@ -916,7 +916,12 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         ).pack(side="left", padx=(5, 0))
 
         side_outer = tk.Frame(self, bg=PANEL, width=max(350, int(380 * self.ui_scale)))
-        side_outer.grid(row=1, column=0, sticky="nsew")
+        side_outer.grid(
+    row=1,
+    column=0,
+    sticky="nsew",
+    padx=(14, 0),
+)
         side_outer.grid_propagate(False)
 
         self.tabs = ttk.Notebook(side_outer)
@@ -924,7 +929,9 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
 
         quick_tab = ttk.Frame(self.tabs, padding=10)
         cleanup_tab = ttk.Frame(self.tabs, padding=10)
-        color_tab = ttk.Frame(self.tabs, padding=10)
+        # Color uses a scrollable canvas so all darkroom controls remain reachable
+        # on shorter displays without changing the rest of the application layout.
+        color_tab = ttk.Frame(self.tabs)
         effects_tab = ttk.Frame(self.tabs, padding=10)
         transform_tab = ttk.Frame(self.tabs, padding=10)
 
@@ -1135,7 +1142,67 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         ).pack(fill="x", pady=(4, 10))
 
         # COLOR TAB
-        color_top = tk.Frame(color_tab, bg=BG)
+        color_canvas = tk.Canvas(
+            color_tab,
+            bg=BG,
+            highlightthickness=0,
+            bd=0,
+        )
+        color_scroll = ttk.Scrollbar(
+            color_tab,
+            orient="vertical",
+            command=color_canvas.yview,
+        )
+        color_canvas.configure(yscrollcommand=color_scroll.set)
+        color_scroll.pack(side="right", fill="y")
+        color_canvas.pack(side="left", fill="both", expand=True)
+
+        color_content = tk.Frame(color_canvas, bg=BG, padx=10, pady=10)
+        color_window = color_canvas.create_window(
+            (0, 0),
+            window=color_content,
+            anchor="nw",
+        )
+
+        def _sync_color_scrollregion(_event=None):
+            color_canvas.configure(scrollregion=color_canvas.bbox("all"))
+
+        def _fit_color_content(event):
+            color_canvas.itemconfigure(color_window, width=event.width)
+
+        def _color_mousewheel(event):
+            # Windows/macOS use event.delta; X11 commonly uses Button-4/5.
+            if getattr(event, "num", None) == 4:
+                steps = -1
+            elif getattr(event, "num", None) == 5:
+                steps = 1
+            else:
+                delta = getattr(event, "delta", 0)
+                if delta == 0:
+                    return
+                steps = -1 if delta > 0 else 1
+            color_canvas.yview_scroll(steps, "units")
+            return "break"
+
+        color_content.bind("<Configure>", _sync_color_scrollregion)
+        color_canvas.bind("<Configure>", _fit_color_content)
+
+        def _bind_color_wheel(_event):
+            color_canvas.bind_all("<MouseWheel>", _color_mousewheel)
+            color_canvas.bind_all("<Button-4>", _color_mousewheel)
+            color_canvas.bind_all("<Button-5>", _color_mousewheel)
+
+        def _unbind_color_wheel(_event):
+            color_canvas.unbind_all("<MouseWheel>")
+            color_canvas.unbind_all("<Button-4>")
+            color_canvas.unbind_all("<Button-5>")
+
+        color_canvas.bind("<Enter>", _bind_color_wheel)
+        color_canvas.bind("<Leave>", _unbind_color_wheel)
+        color_content.bind("<Enter>", _bind_color_wheel)
+        color_content.bind("<Leave>", _unbind_color_wheel)
+
+        color_top = tk.Frame(color_content, bg=BG)
         color_top.pack(fill="x", pady=(0, 6))
         tk.Label(
             color_top,
@@ -1150,7 +1217,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             command=self.reset_color,
         ).pack(side="right")
 
-        hue_box = tk.Frame(color_tab, bg=BG)
+        hue_box = tk.Frame(color_content, bg=BG)
         hue_box.pack(fill="x", pady=(0, 8))
         hue_head = tk.Frame(hue_box, bg=BG)
         hue_head.pack(fill="x")
@@ -1175,51 +1242,51 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self.hue_wheel.pack(anchor="center", pady=6)
 
         self._slider(
-            color_tab, "Hue", self.hue_var, -180, 180,
+            color_content, "Hue", self.hue_var, -180, 180,
             "Hue rotation in degrees",
             signed=True,
             info="Rotates colors around the hue wheel without changing geometry.",
         )
         self._slider(
-            color_tab, "Adjustment mix", self.color_mix_var, 0, 100,
+            color_content, "Adjustment mix", self.color_mix_var, 0, 100,
             "Alpha-like intensity for all Color/Effects adjustments",
             percent=True,
             info="Blends the darkroom-adjusted image back toward the cleaned image. "
                  "0% disables Color/Effects changes; 100% applies them fully. This is not file transparency.",
         )
         self._slider(
-            color_tab, "Brightness", self.brightness_var, -100, 100,
+            color_content, "Brightness", self.brightness_var, -100, 100,
             "Lift or lower overall brightness",
             signed=True,
             info="Adds or removes overall brightness after cleanup.",
         )
         self._slider(
-            color_tab, "Contrast", self.contrast_var, 0, 200,
+            color_content, "Contrast", self.contrast_var, 0, 200,
             "100 is neutral",
             percent=True,
             info="Expands or compresses tonal separation around the midpoint.",
         )
         self._slider(
-            color_tab, "Saturation", self.saturation_var, 0, 200,
+            color_content, "Saturation", self.saturation_var, 0, 200,
             "100 is neutral",
             percent=True,
             info="Controls color intensity. 0% removes chroma; values above 100% increase it.",
         )
         self._slider(
-            color_tab, "Warmth", self.warmth_var, -100, 100,
+            color_content, "Warmth", self.warmth_var, -100, 100,
             "Cooler ← 0 → warmer",
             signed=True,
             info="Moves channel balance toward blue/cool or red-gold/warm.",
         )
         self._slider(
-            color_tab, "Exposure", self.exposure_var, -200, 200,
+            color_content, "Exposure", self.exposure_var, -200, 200,
             "Exposure compensation in stops",
             divisor=100,
             signed=True,
             info="Multiplies image light by photographic stop values.",
         )
         self._slider(
-            color_tab, "Gamma", self.gamma_var, 40, 250,
+            color_content, "Gamma", self.gamma_var, 40, 250,
             "Midtone response; 1.00 is neutral",
             divisor=100,
             info="Changes midtone response while preserving the endpoints more than brightness does.",
