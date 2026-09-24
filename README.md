@@ -34,6 +34,18 @@ python GPTCleanerCosmicV.py
 
 No image is uploaded to a cloud service by the application. Processing occurs locally.
 
+## Current Windows release
+
+**v0.2.0** adds the draggable original/cleaned overlay comparator, native high-DPI Windows rendering, 1440p/2160p-aware previews up to 3840×2160, maximized startup, and F11 fullscreen comparison.
+
+Download the current standalone Windows build from the [`AI_Image_Artifact_Removal` release](https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/tag/AI_Image_Artifact_Removal).
+
+v0.2.0 EXE SHA-256:
+
+```text
+d81fe81ba41ad831e656cc1474cb73b0063f5abd3cd22affe9d813db04b2cfbd
+```
+
 ## Windows standalone EXE
 
 Windows users can build a standalone executable by double-clicking:
