@@ -52,6 +52,7 @@ python -m PyInstaller ^
     --windowed ^
     --noupx ^
     --name "GPTCleanerCosmicV" ^
+    --icon "assets\\CosmicDaveIcon.ico" ^
     --version-file "version_info.txt" ^
     --hidden-import "PIL._tkinter_finder" ^
     "GPTCleanerCosmicV.py"
