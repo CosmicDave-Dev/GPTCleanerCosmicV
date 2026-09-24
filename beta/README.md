@@ -2,7 +2,11 @@
 
 This is the lightweight experimental branch for Ganja/Dave testing.
 
-The beta intentionally **does not bundle Python, NumPy, OpenCV, or Pillow**. The tiny launcher EXE embeds only the beta Python application, extracts it to the current user's Local AppData folder, then starts it with the installed Python environment.
+The beta is now distributed as a **single readable .pyw file**. It does not bundle Python, NumPy, OpenCV, or Pillow, and it does not use a self-extracting native launcher.
+
+Double-clicking the .pyw file launches the GUI through the tester's installed Python environment. A ZIP may be used for chat/Discord transport.
+
+This replaces the earlier thin native EXE beta, which was retired after Microsoft Defender heuristics flagged its embedded-script/extract-and-launch behavior.
 
 ## What is new
 
@@ -47,10 +51,13 @@ This requirement is deliberate for rapid beta iteration. The normal public relea
 
 ## Beta size policy
 
-The thin beta is deliberately kept small because it relies on the tester's already-installed Python/OpenCV/NumPy/Pillow environment.
+The beta is deliberately kept small because it relies on the tester's already-installed Python/OpenCV/NumPy/Pillow environment.
 
+- Distribution: single `.pyw` file, optionally transported inside ZIP
 - Soft target: 512 KB
 - Hard ceiling: 1,000,000 bytes
-- CI fails the beta build if the launcher exceeds the hard ceiling.
+- CI fails packaging if the beta file exceeds the hard ceiling
 
-The full standalone public build remains a separate distribution track.
+The native self-extracting beta launcher is retired and is no longer built.
+
+The full standalone public release remains a separate distribution track.
