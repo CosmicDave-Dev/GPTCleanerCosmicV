@@ -73,11 +73,20 @@ The current beta adds a cybercore night interface and a simplified **Quick** tab
 - Quick tab opens first
 - Four cleanup presets: Conservative / Balanced / Strong / Aggressive
 - Fit and 1:1 viewer modes
-- Save Image / Save Comparison / Clear
+- Cursor-centered mouse-wheel zoom plus right-drag pan
+- Save As / Save Comparison / Clear
 - Numeric type-or-paste boxes beside all slider controls
 - Windows Explorer image drag-and-drop via beta-local vendored tkinterdnd2 support
 - Hue color wheel plus precise numeric hue input
 - Adjustment Mix control for alpha-like Color/Effects intensity
+- Color-tab mouse-wheel scrolling works across the full control area
+- Save As: PNG, JPEG, WebP, GIF, ICO, BMP, and TIFF
+- Avatar 512 preset: centered square crop, 512×512, 300 DPI
+- Multi-resolution Windows ICO export
+- Crop and Resize working-image tools with reset-to-original
+- Version ID plus one-click Current Version link to GitHub
+- "CosmicV is original software and completely free - just like you!"
+- Created at Cosmic Dave Studios
 - Clickable info icons throughout the controls
 - Cyan before/after divider and dark cybercore palette
 
