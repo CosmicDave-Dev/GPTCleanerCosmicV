@@ -1,111 +1,83 @@
-# GPTCleaner CosmicV
+# CosmicV EdgeCrunch Darkroom
 
-A local desktop image-cleaning tool for reducing synthetic-looking microtexture, isolated bright/dark specks, and other small artifacts often found in AI-generated images, while preserving meaningful image structure.
+**Version V1.4**
 
-GPTCleaner CosmicV uses an independent processing pipeline built around luminance analysis, structural-edge detection, high-frequency texture measurement, spatial cleanup masking, Non-Local Means reconstruction, and morphological speck detection.
+CosmicV EdgeCrunch Darkroom is a local Windows image-cleaning and darkroom utility created at **Cosmic Dave Studios**.
 
-## Features
+> CosmicV is original software and completely free - just like you!
 
-- Draggable original/cleaned overlay comparator
-- Adjustable cleanup strength
-- Patch-based cleanup control
-- Texture-scale control
-- Edge-protection control
-- Bright/dark speck threshold
-- Full-resolution output
-- Local processing only
-- PNG, JPEG, WebP, BMP, and TIFF input support
-- PNG, JPEG, and WebP output
-- High-DPI 1440p/2160p-aware Windows UI
-- Fullscreen comparison mode (F11)
-- Portable Windows EXE build support
+It combines selective AI-image artifact cleanup with fast color, effects, comparison, zoom, and export tools. Processing stays local on the user's machine.
 
-## Quick start from Python
+## V1.4 highlights
 
-Requires Python 3.10 or newer.
+- EdgeCrunch fragmented micro-edge / micro-contour cleanup
+- Four curated cleanup presets: Conservative, Balanced, Strong, Aggressive
+- Advanced cleanup controls with numerical type-or-paste input
+- Draggable before/after comparison divider
+- Target Mask diagnostic view
+- Cursor-centered mouse-wheel zoom
+- Right-drag panning while zoomed
+- Fit and 1:1 viewer modes
+- Explorer drag-and-drop
+- Color Lab with hue wheel
+- Brightness, contrast, saturation, warmth, exposure, gamma, and adjustment mix
+- Grayscale, sepia, invert, blur, sharpen, and vignette
+- Rotate and flip controls
+- Save and Save As workflow
+- Save As: PNG, JPEG, WebP, GIF, ICO, BMP, and TIFF
+- 512 x 512 avatar export with 300 DPI metadata where supported
+- Multi-resolution Windows ICO export
+- High-DPI Windows interface
+- F11 fullscreen mode
+- Current Version link in the application header
+
+Crop and freeform resize controls were intentionally left out of V1.4 pending a cleaner implementation.
+
+## Current release
+
+The current standalone Windows release is **CosmicV EdgeCrunch Darkroom V1.4**.
+
+The application header's **Current Version** button opens the latest GitHub release:
+
+https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/latest
+
+The standalone EXE bundles Python and runtime dependencies, so end users do not need a separate Python installation.
+
+## Run from source
+
+Python 3.10+ is recommended.
 
 ```bat
-python -m venv GPTCleanerCosmicV-env
-GPTCleanerCosmicV-env\Scripts\activate
+python -m venv CosmicVEdgeCrunchDarkroom-env
+CosmicVEdgeCrunchDarkroom-env\Scripts\activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python GPTCleanerCosmicV.py
+python CosmicVEdgeCrunchDarkroom.py
 ```
 
-No image is uploaded to a cloud service by the application. Processing occurs locally.
+## Build the standalone EXE
 
-## Current Windows release
-
-**v0.2.0** adds the draggable original/cleaned overlay comparator, native high-DPI Windows rendering, 1440p/2160p-aware previews up to 3840×2160, maximized startup, and F11 fullscreen comparison.
-
-Download the current standalone Windows build from the [`AI_Image_Artifact_Removal` release](https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/tag/AI_Image_Artifact_Removal).
-
-The current EXE SHA-256 checksum is published on the release page alongside the downloadable build.
-
-## Windows standalone EXE
-
-Windows users can build a standalone executable by double-clicking:
+On Windows, double-click:
 
 ```text
 BUILD-EXE.bat
 ```
 
-The builder creates an isolated build environment and produces:
+The builder creates:
 
 ```text
-dist\GPTCleanerCosmicV.exe
+dist\CosmicV-EdgeCrunch-Darkroom.exe
+dist\CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip
 ```
 
-The finished EXE bundles Python and the runtime dependencies, so end users do not need Python, pip, OpenCV, NumPy, or Pillow installed.
+See `docs/WINDOWS-EXE-INSTALL.txt` for end-user instructions.
 
-See [`docs/WINDOWS-EXE-INSTALL.txt`](docs/WINDOWS-EXE-INSTALL.txt) for end-user instructions.
+## Privacy
 
-## Controls
-
-**Cleanup strength** controls the overall amount of processing.
-
-**Patch cleanup** adjusts the Non-Local Means reconstruction strength.
-
-**Texture window** changes the spatial scale used to identify fine texture.
-
-**Edge protection** determines how aggressively strong image structure is protected from cleanup.
-
-**Speck threshold** controls how strong an isolated bright or dark point must be before it is targeted.
-
-The comparison viewer can process previews up to 3840×2160 and uses a draggable overlay divider. Saving always processes the original full-resolution image.
-
-## How the core works
-
-```text
-RGB image
-   ↓
-LAB luminance/chroma separation
-   ↓
-structural-edge map + fine-texture map
-   ↓
-artifact-targeting cleanup mask
-   ↓
-Non-Local Means luminance candidate
-   ↓
-selective reconstruction
-   ↓
-bright/dark morphological speck cleanup
-   ↓
-original chroma restored
-   ↓
-cleaned RGB image
-```
-
-The architecture is intended to be expandable. Artifact detection and reconstruction can evolve independently, allowing additional detectors, cleanup engines, model-specific profiles, batch processing, diagnostic masks, or other image-restoration systems to be added later.
-
-## Building the EXE
-
-`BUILD-EXE.bat` requires Windows 10/11, 64-bit Python 3, and internet access during the build. It installs build dependencies only into `.build-env`, then packages the program with PyInstaller.
-
-The generated EXE is unsigned, so Windows SmartScreen may warn on first launch because the binary has no established signing reputation.
+CosmicV EdgeCrunch Darkroom processes images locally. It does not require an account or cloud upload service to clean or edit images.
 
 ## License
 
-GPTCleaner CosmicV is released under the [MIT License](LICENSE).
+CosmicV EdgeCrunch Darkroom is released under the [MIT License](LICENSE).
 
 Copyright © 2026 CosmicDave.
