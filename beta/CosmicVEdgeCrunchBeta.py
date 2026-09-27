@@ -40,6 +40,7 @@ except Exception as exc:
 APP_TITLE = "CosmicV EdgeCrunch Darkroom"
 APP_VERSION = "v0.4.0-beta"
 CURRENT_RELEASE_URL = "https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/tag/AI_Image_Artifact_Removal"
+WINDOW_ICON_NAME = "CosmicDaveIcon.ico"
 PREVIEW_MAX_W = 3840
 PREVIEW_MAX_H = 2160
 
@@ -879,6 +880,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self.configure(bg=BG)
         self._configure_dpi()
         self._configure_theme()
+        self._apply_window_icon()
         self.geometry(
             f"{min(self.winfo_screenwidth(), 1900)}x"
             f"{min(self.winfo_screenheight(), 1150)}"
@@ -891,6 +893,8 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self.cleaned_preview: np.ndarray | None = None
         self.mask_preview: np.ndarray | None = None
         self.source_path: Path | None = None
+        self.last_save_path: Path | None = None
+        self.pending_save_path: Path | None = None
 
         self.pool = ThreadPoolExecutor(max_workers=1)
         self.results: queue.Queue[tuple] = queue.Queue()
@@ -968,6 +972,25 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
                 )
             except Exception:
                 pass
+
+    def _apply_window_icon(self) -> None:
+        """Use the Cosmic Dave Studios Spade icon when the beta package includes it."""
+        candidates = [
+            Path(__file__).resolve().parent / WINDOW_ICON_NAME,
+            Path(__file__).resolve().parent.parent / "assets" / WINDOW_ICON_NAME,
+        ]
+        for icon_path in candidates:
+            if not icon_path.is_file():
+                continue
+            try:
+                self.iconbitmap(default=str(icon_path))
+                return
+            except Exception:
+                try:
+                    self.iconbitmap(str(icon_path))
+                    return
+                except Exception:
+                    pass
 
     def _configure_theme(self) -> None:
         style = ttk.Style(self)
@@ -1112,6 +1135,22 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             text="Open Image",
             command=self.open_image,
         ).pack(side="left", padx=3)
+
+        self.header_save_btn = ttk.Button(
+            toolbar,
+            text="Save",
+            command=self.save_current,
+            state="disabled",
+        )
+        self.header_save_btn.pack(side="left", padx=3)
+
+        self.header_save_as_btn = ttk.Button(
+            toolbar,
+            text="Save As",
+            command=self.save_image,
+            state="disabled",
+        )
+        self.header_save_as_btn.pack(side="left", padx=3)
 
         ttk.Button(
             toolbar,
@@ -1878,6 +1917,8 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             "resize_btn",
             "geometry_reset_btn",
             "clear_btn",
+            "header_save_btn",
+            "header_save_as_btn",
         ):
             widget = getattr(self, name, None)
             if widget is not None:
@@ -1942,8 +1983,14 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             fg=TEXT,
             font=("Segoe UI", 11, "bold"),
             padx=14,
+            pady=0,
+        ).grid(
+            row=0,
+            column=0,
+            columnspan=4,
+            sticky="w",
             pady=(12, 5),
-        ).grid(row=0, column=0, columnspan=4, sticky="w")
+        )
 
         tk.Label(
             dialog,
@@ -1951,8 +1998,14 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             bg=BG,
             fg=MUTED,
             padx=14,
+            pady=0,
+        ).grid(
+            row=1,
+            column=0,
+            columnspan=4,
+            sticky="w",
             pady=(0, 8),
-        ).grid(row=1, column=0, columnspan=4, sticky="w")
+        )
 
         x_var = tk.StringVar(value="0")
         y_var = tk.StringVar(value="0")
@@ -2074,8 +2127,14 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             fg=TEXT,
             font=("Segoe UI", 11, "bold"),
             padx=14,
+            pady=0,
+        ).grid(
+            row=0,
+            column=0,
+            columnspan=4,
+            sticky="w",
             pady=(12, 8),
-        ).grid(row=0, column=0, columnspan=4, sticky="w")
+        )
 
         width_var = tk.StringVar(value=str(w))
         height_var = tk.StringVar(value=str(h))
@@ -2233,6 +2292,8 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             return
 
         self.source_path = path
+        self.last_save_path = None
+        self.pending_save_path = None
         self.original_source_full = full.copy()
         self.original_full = full.copy()
         self._refresh_working_image(reset_view=True)
@@ -2244,6 +2305,8 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self.cleaned_preview = None
         self.mask_preview = None
         self.source_path = None
+        self.last_save_path = None
+        self.pending_save_path = None
         self.file_var.set("Drop an image from Windows Explorer or click Open Image")
         self.viewer.clear()
         self._set_image_actions("disabled")
@@ -2296,7 +2359,17 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
     def toggle_mask(self) -> None:
         self.viewer.toggle_mask()
 
+    def save_current(self) -> None:
+        """Save to the last explicit output path; first Save behaves like Save As."""
+        if self.original_full is None or self.saving:
+            return
+        if self.last_save_path is None:
+            self.save_image()
+            return
+        self._save_to_path(self.last_save_path)
+
     def save_image(self) -> None:
+        """Save As: choose the output format/path and remember it for subsequent Save."""
         if self.original_full is None or self.saving:
             return
 
@@ -2317,12 +2390,21 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         if not path:
             return
 
+        self._save_to_path(Path(path))
+
+    def _save_to_path(self, path: Path) -> None:
+        if self.original_full is None or self.saving:
+            return
+
         self.saving = True
+        self.pending_save_path = Path(path)
         self._set_image_actions("disabled")
-        self.status.set("Processing full-resolution image...")
+        self.status.set(f"Saving {self.pending_save_path.name}...")
+
         image = self.original_full.copy()
         settings = self.settings()
         darkroom = self.darkroom_settings()
+        target = self.pending_save_path
 
         future = self.pool.submit(
             process_rgb,
@@ -2334,7 +2416,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         def done(f):
             try:
                 out, _mask, _original_display = f.result()
-                saved = write_rgb(path, out)
+                saved = write_rgb(target, out)
                 err = None
             except Exception as exc:
                 saved = None
@@ -2540,9 +2622,12 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
                     self.saving = False
                     self._set_image_actions("normal")
                     if err:
+                        self.pending_save_path = None
                         self.status.set("Save failed.")
                         messagebox.showerror(APP_TITLE, str(err))
                     else:
+                        self.last_save_path = Path(saved)
+                        self.pending_save_path = None
                         self.status.set(f"Saved: {Path(saved).name}")
 
                 elif msg[0] == "save_compare":
