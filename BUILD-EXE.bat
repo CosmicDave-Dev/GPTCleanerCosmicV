@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
-title GPTCleaner CosmicV - Windows EXE Builder
+title CosmicV EdgeCrunch Darkroom V1.4 - Windows EXE Builder
 cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo        GPTCleaner CosmicV - One Click EXE Builder
+echo     CosmicV EdgeCrunch Darkroom V1.4 - EXE Builder
 echo ============================================================
 echo.
 
@@ -42,7 +42,7 @@ if errorlevel 1 goto :failed
 echo [3/5] Cleaning previous output...
 if exist "build" rmdir /s /q "build"
 if exist "dist" rmdir /s /q "dist"
-if exist "GPTCleanerCosmicV.spec" del /q "GPTCleanerCosmicV.spec"
+if exist "CosmicV-EdgeCrunch-Darkroom.spec" del /q "CosmicV-EdgeCrunch-Darkroom.spec"
 
 echo [4/5] Building standalone executable...
 python -m PyInstaller ^
@@ -51,22 +51,23 @@ python -m PyInstaller ^
     --onefile ^
     --windowed ^
     --noupx ^
-    --name "GPTCleanerCosmicV" ^
-    --icon "assets\\CosmicDaveIcon.ico" ^
+    --name "CosmicV-EdgeCrunch-Darkroom" ^
+    --icon "assets\CosmicDaveIcon.ico" ^
     --version-file "version_info.txt" ^
     --hidden-import "PIL._tkinter_finder" ^
-    "GPTCleanerCosmicV.py"
+    --collect-all "tkinterdnd2" ^
+    "CosmicVEdgeCrunchDarkroom.py"
 if errorlevel 1 goto :failed
 
 echo [5/5] Preparing release folder...
 copy /y "LICENSE" "dist\LICENSE.txt" >nul
 copy /y "docs\WINDOWS-EXE-INSTALL.txt" "dist\README.txt" >nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$files=@('dist\GPTCleanerCosmicV.exe','dist\LICENSE.txt','dist\README.txt'); Compress-Archive -Force -Path $files -DestinationPath 'dist\GPTCleanerCosmicV-Windows-x64.zip'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$files=@('dist\CosmicV-EdgeCrunch-Darkroom.exe','dist\LICENSE.txt','dist\README.txt'); Compress-Archive -Force -Path $files -DestinationPath 'dist\CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip'"
 
 echo.
 echo BUILD COMPLETE
-echo Standalone EXE: %CD%\dist\GPTCleanerCosmicV.exe
-echo Release ZIP:    %CD%\dist\GPTCleanerCosmicV-Windows-x64.zip
+echo Standalone EXE: %CD%\dist\CosmicV-EdgeCrunch-Darkroom.exe
+echo Release ZIP:    %CD%\dist\CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip
 start "" "%CD%\dist"
 pause
 exit /b 0
