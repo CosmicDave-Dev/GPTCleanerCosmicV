@@ -1,92 +1,85 @@
-GPTCleaner CosmicV
+CosmicV EdgeCrunch Darkroom V1.4
 Windows EXE - Install & Run Guide
 =================================
 
-GPTCleaner CosmicV is a portable Windows application.
+CosmicV EdgeCrunch Darkroom is a portable Windows application created at
+Cosmic Dave Studios.
 
 You do NOT need to install Python.
-You do NOT need to install OpenCV, NumPy, Pillow, or other dependencies.
-Everything needed to run the program is bundled inside the EXE.
+You do NOT need to install OpenCV, NumPy, Pillow, tkinterdnd2, or other
+runtime dependencies. Everything required is bundled inside the EXE.
 
 QUICK START
 -----------
 
-1. Download the GPTCleanerCosmicV Windows ZIP.
+1. Download CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip.
 2. Right-click the ZIP and choose "Extract All..."
 3. Open the extracted folder.
-4. Double-click GPTCleanerCosmicV.exe
+4. Double-click CosmicV-EdgeCrunch-Darkroom.exe.
 
 NO INSTALLER IS REQUIRED
 ------------------------
 
-GPTCleaner CosmicV is portable software. Keep the extracted folder anywhere
-convenient, such as Desktop, Documents, or another drive.
+CosmicV EdgeCrunch Darkroom is portable software. Keep the extracted folder
+anywhere convenient, such as Desktop, Documents, or another drive.
 
 FIRST LAUNCH
 ------------
 
-The first launch may take several seconds while Windows and antivirus software
-inspect the new executable.
+The first launch may take several seconds while Windows and antivirus
+software inspect the executable.
 
 WINDOWS SMARTSCREEN
 -------------------
 
-Because an independently built EXE may not yet have an established Windows
-reputation, SmartScreen may display "Windows protected your PC".
-
-If you received the file from a source you trust, click "More info", then
-"Run anyway".
+The V1.4 executable is unsigned. Windows SmartScreen may warn because the
+binary does not yet have established signing reputation.
 
 USING THE PROGRAM
 -----------------
 
-1. Click Open Image.
-2. Select an image.
-3. Adjust the cleanup controls.
-4. Compare Original and Cleaned Preview.
-5. Click Save As...
-6. Choose an output location.
+1. Click Open Image or drag an image into the application.
+2. Choose a Quick cleanup preset or tune the advanced controls.
+3. Use the cyan divider to compare Before and After.
+4. Mouse-wheel over the image to zoom toward the cursor.
+5. Right-drag while zoomed to pan.
+6. Use Save As to choose an output path and format.
+7. After an output path is chosen, Save writes subsequent changes there.
 
-The saved image is processed from the original full-resolution image.
+Supported export formats include PNG, JPEG, WebP, GIF, ICO, BMP, and TIFF.
+The Avatar 512 preset creates a centered 512 x 512 image and writes 300 DPI
+metadata where the selected format supports it. The Windows Icon preset
+creates a multi-resolution ICO.
 
-UNINSTALLING
-------------
+TARGET MASK
+-----------
 
-Close the program and delete GPTCleanerCosmicV.exe or its containing folder.
-There is no Python environment or package installation to remove.
+Target Mask shows the cleanup detector's diagnostic mask over the processed
+side. It is a viewing aid only and is not baked into normal image saves.
+
+FULLSCREEN
+----------
+
+Press F11 for fullscreen comparison. Press Escape to leave fullscreen.
 
 PRIVACY
 -------
 
-GPTCleaner CosmicV processes images locally. The application does not require
-an account or cloud upload service to clean images.
+CosmicV EdgeCrunch Darkroom processes images locally. The application does
+not require an account or cloud upload service to clean images.
+
+CURRENT VERSION
+---------------
+
+V1.4
+
+Use the Current Version button in the application header or visit the latest
+GitHub release.
 
 LICENSE
 -------
 
 See LICENSE.txt included with the release.
 
-Enjoy cleaning the crunch.
-
-
-OVERLAY COMPARISON
-------------------
-
-GPTCleaner CosmicV v0.2 uses a draggable overlay viewer.
-
-The cleaned image is underneath the original image. Drag the gold vertical divider
-across the image to compare the same pixels before and after cleaning.
-
-Press F11 for fullscreen comparison. Press Escape to leave fullscreen.
-
-HIGH-RESOLUTION DISPLAYS
-------------------------
-
-The v0.2 interface is DPI-aware on modern Windows systems and is designed to use
-1440p and 2160p displays properly. Preview processing supports images up to
-3840 x 2160 before downscaling for responsiveness.
-
-CURRENT VERSION
----------------
-
-v0.2.0
+CosmicV is original software and completely free - just like you!
+Created at Cosmic Dave Studios.
