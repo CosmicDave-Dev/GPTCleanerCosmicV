@@ -446,6 +446,8 @@ GRID = "#253142"
 
 
 class OverlayViewer(tk.Frame):
+    """Before/after viewer with cursor-centered wheel zoom and right-drag pan."""
+
     def __init__(self, parent: tk.Misc, scale: float) -> None:
         super().__init__(
             parent,
@@ -460,9 +462,18 @@ class OverlayViewer(tk.Frame):
         self.cleaned: np.ndarray | None = None
         self.mask: np.ndarray | None = None
         self.show_mask = False
+
         self.original_photo: ImageTk.PhotoImage | None = None
         self.cleaned_photo: ImageTk.PhotoImage | None = None
+
         self.x = self.y = self.w = self.h = 0
+        self.current_factor = 1.0
+        self.zoom_factor: float | None = None
+        self.offset_x: float | None = None
+        self.offset_y: float | None = None
+        self.recenter_zoom = False
+        self._pan_root: tuple[int, int] | None = None
+        self._pan_origin: tuple[float, float] | None = None
 
         self.base = tk.Label(self, bg=BG, bd=0)
         self.clip = tk.Frame(self, bg=BG, bd=0)
@@ -511,6 +522,11 @@ class OverlayViewer(tk.Frame):
         ):
             widget.bind("<Button-1>", self._drag)
             widget.bind("<B1-Motion>", self._drag)
+            widget.bind("<MouseWheel>", self._wheel_zoom)
+            widget.bind("<Button-4>", self._wheel_zoom)
+            widget.bind("<Button-5>", self._wheel_zoom)
+            widget.bind("<Button-3>", self._pan_start)
+            widget.bind("<B3-Motion>", self._pan_move)
 
         self.bind("<Configure>", lambda _e: self.after_idle(self.render))
 
@@ -518,6 +534,9 @@ class OverlayViewer(tk.Frame):
         self.original = None
         self.cleaned = None
         self.mask = None
+        self.zoom_factor = None
+        self.offset_x = None
+        self.offset_y = None
         self.base.place_forget()
         self.clip.place_forget()
         self.divider.place_forget()
@@ -526,7 +545,15 @@ class OverlayViewer(tk.Frame):
         self.empty.place(relx=0.5, rely=0.5, anchor="center")
 
     def set_view_mode(self, mode: str) -> None:
-        self.view_mode = "1:1" if mode == "1:1" else "fit"
+        if mode == "1:1":
+            self.view_mode = "1:1"
+            self.zoom_factor = 1.0
+            self.recenter_zoom = True
+        else:
+            self.view_mode = "fit"
+            self.zoom_factor = None
+            self.offset_x = None
+            self.offset_y = None
         self.render()
 
     def set_images(
@@ -535,9 +562,18 @@ class OverlayViewer(tk.Frame):
         cleaned: np.ndarray,
         mask: np.ndarray | None = None,
     ) -> None:
+        old_shape = self.original.shape[:2] if self.original is not None else None
+        new_shape = original.shape[:2]
         self.original = original
         self.cleaned = cleaned
         self.mask = mask
+
+        if old_shape is not None and old_shape != new_shape:
+            self.zoom_factor = None
+            self.offset_x = None
+            self.offset_y = None
+            self.view_mode = "fit"
+
         self.empty.place_forget()
         self.render()
 
@@ -545,28 +581,51 @@ class OverlayViewer(tk.Frame):
         self.show_mask = not self.show_mask
         self.render()
 
+    def _fit_factor(self, vw: int, vh: int) -> float:
+        if self.original is None:
+            return 1.0
+        ih, iw = self.original.shape[:2]
+        margin = max(8, int(12 * self.scale))
+        return min(
+            max(1, vw - 2 * margin) / max(iw, 1),
+            max(1, vh - 2 * margin) / max(ih, 1),
+        )
+
     def render(self) -> None:
         if self.original is None or self.cleaned is None:
             return
 
         vw = max(1, self.winfo_width())
         vh = max(1, self.winfo_height())
-        margin = max(8, int(12 * self.scale))
         ih, iw = self.original.shape[:2]
+        fit_factor = self._fit_factor(vw, vh)
 
-        if self.view_mode == "1:1":
-            factor = 1.0
-        else:
-            factor = min(
-                max(1, vw - 2 * margin) / max(iw, 1),
-                max(1, vh - 2 * margin) / max(ih, 1),
-            )
+        factor = fit_factor if self.zoom_factor is None else self.zoom_factor
+        # Keep giant zooms useful without allocating absurdly large PhotoImages.
+        max_factor = min(
+            8.0,
+            8192.0 / max(iw, 1),
+            8192.0 / max(ih, 1),
+        )
+        factor = float(np.clip(factor, 0.05, max(0.05, max_factor)))
+        self.current_factor = factor
 
         dw = max(1, int(round(iw * factor)))
         dh = max(1, int(round(ih * factor)))
 
-        self.x = (vw - dw) // 2
-        self.y = (vh - dh) // 2
+        if self.zoom_factor is None:
+            self.x = (vw - dw) // 2
+            self.y = (vh - dh) // 2
+        elif self.recenter_zoom or self.offset_x is None or self.offset_y is None:
+            self.x = (vw - dw) // 2
+            self.y = (vh - dh) // 2
+            self.offset_x = float(self.x)
+            self.offset_y = float(self.y)
+            self.recenter_zoom = False
+        else:
+            self.x = int(round(self.offset_x))
+            self.y = int(round(self.offset_y))
+
         self.w = dw
         self.h = dh
 
@@ -596,8 +655,13 @@ class OverlayViewer(tk.Frame):
 
         self.base.configure(image=self.cleaned_photo)
         self.top.configure(image=self.original_photo)
-        self.base.place(x=self.x, y=self.y, width=dw, height=dh)
-        self.top.place(x=0, y=0, width=dw, height=dh)
+        self._place_layers()
+
+    def _place_layers(self) -> None:
+        if self.w <= 1 or self.h <= 1:
+            return
+        self.base.place(x=self.x, y=self.y, width=self.w, height=self.h)
+        self.top.place(x=0, y=0, width=self.w, height=self.h)
         self._apply_split()
 
     def _apply_split(self) -> None:
@@ -605,7 +669,13 @@ class OverlayViewer(tk.Frame):
             return
         clip_w = max(1, min(self.w - 1, int(self.w * self.split)))
         line = max(2, int(2 * self.scale))
-        self.clip.place(x=self.x, y=self.y, width=clip_w, height=self.h)
+
+        self.clip.place(
+            x=self.x,
+            y=self.y,
+            width=clip_w,
+            height=self.h,
+        )
         self.divider.place(
             x=self.x + clip_w - line // 2,
             y=self.y,
@@ -614,13 +684,14 @@ class OverlayViewer(tk.Frame):
         )
 
         pad = max(8, int(12 * self.scale))
-        self.left_tag.place(x=self.x + pad, y=self.y + pad, anchor="nw")
+        label_y = max(pad, self.y + pad)
+        left_x = max(pad, self.x + pad)
+        right_x = min(self.winfo_width() - pad, self.x + self.w - pad)
+
+        self.left_tag.place(x=left_x, y=label_y, anchor="nw")
         self.right_tag.configure(text="MASK" if self.show_mask else "AFTER")
-        self.right_tag.place(
-            x=self.x + self.w - pad,
-            y=self.y + pad,
-            anchor="ne",
-        )
+        self.right_tag.place(x=right_x, y=label_y, anchor="ne")
+
         self.divider.lift()
         self.left_tag.lift()
         self.right_tag.lift()
@@ -634,6 +705,80 @@ class OverlayViewer(tk.Frame):
                 np.clip((px - self.x) / self.w, 0.01, 0.99)
             )
             self._apply_split()
+
+    def _wheel_zoom(self, event: tk.Event):
+        if self.original is None:
+            return "break"
+
+        if getattr(event, "num", None) == 4:
+            direction = 1
+        elif getattr(event, "num", None) == 5:
+            direction = -1
+        else:
+            delta = getattr(event, "delta", 0)
+            if delta == 0:
+                return "break"
+            direction = 1 if delta > 0 else -1
+
+        vw = max(1, self.winfo_width())
+        vh = max(1, self.winfo_height())
+        fit_factor = self._fit_factor(vw, vh)
+        ih, iw = self.original.shape[:2]
+
+        old_factor = max(0.0001, self.current_factor)
+        px = event.x_root - self.winfo_rootx()
+        py = event.y_root - self.winfo_rooty()
+
+        img_x = np.clip((px - self.x) / old_factor, 0.0, float(iw))
+        img_y = np.clip((py - self.y) / old_factor, 0.0, float(ih))
+
+        max_factor = min(
+            8.0,
+            8192.0 / max(iw, 1),
+            8192.0 / max(ih, 1),
+        )
+        min_factor = max(0.05, fit_factor * 0.25)
+        new_factor = float(
+            np.clip(
+                old_factor * (1.16 if direction > 0 else 1.0 / 1.16),
+                min_factor,
+                max(max_factor, min_factor),
+            )
+        )
+
+        self.zoom_factor = new_factor
+        self.view_mode = "zoom"
+        self.offset_x = float(px - img_x * new_factor)
+        self.offset_y = float(py - img_y * new_factor)
+        self.recenter_zoom = False
+        self.render()
+        return "break"
+
+    def _pan_start(self, event: tk.Event):
+        if self.original is None:
+            return "break"
+        if self.zoom_factor is None:
+            self.zoom_factor = self.current_factor
+            self.offset_x = float(self.x)
+            self.offset_y = float(self.y)
+        self._pan_root = (event.x_root, event.y_root)
+        self._pan_origin = (
+            float(self.offset_x if self.offset_x is not None else self.x),
+            float(self.offset_y if self.offset_y is not None else self.y),
+        )
+        return "break"
+
+    def _pan_move(self, event: tk.Event):
+        if self._pan_root is None or self._pan_origin is None:
+            return "break"
+        dx = event.x_root - self._pan_root[0]
+        dy = event.y_root - self._pan_root[1]
+        self.offset_x = self._pan_origin[0] + dx
+        self.offset_y = self._pan_origin[1] + dy
+        self.x = int(round(self.offset_x))
+        self.y = int(round(self.offset_y))
+        self._place_layers()
+        return "break"
 
 
 class HueWheel(tk.Canvas):
