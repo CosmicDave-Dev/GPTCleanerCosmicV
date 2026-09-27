@@ -885,6 +885,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         )
         self.minsize(1100, 720)
 
+        self.original_source_full: np.ndarray | None = None
         self.original_full: np.ndarray | None = None
         self.original_preview: np.ndarray | None = None
         self.cleaned_preview: np.ndarray | None = None
@@ -1072,23 +1073,39 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self.columnconfigure(1, weight=1)
         self.rowconfigure(1, weight=1)
 
-        header = tk.Frame(self, bg=PANEL, height=48)
+        header = tk.Frame(self, bg=PANEL)
         header.grid(row=0, column=0, columnspan=2, sticky="ew")
         header.grid_columnconfigure(1, weight=1)
 
         brand = tk.Label(
             header,
-            text="◈  COSMICV  //  ARTIFACT CLEANER",
+            text=f"◈  COSMICV  //  ARTIFACT CLEANER   {APP_VERSION}",
             bg=PANEL,
             fg=TEXT,
             font=("Segoe UI", 11, "bold"),
             padx=14,
-            pady=11,
+            pady=(9, 3),
         )
         brand.grid(row=0, column=0, sticky="w")
 
         toolbar = tk.Frame(header, bg=PANEL)
         toolbar.grid(row=0, column=1, sticky="e", padx=10)
+
+        tk.Button(
+            toolbar,
+            text="Current Version ↗",
+            command=lambda: webbrowser.open(CURRENT_RELEASE_URL),
+            bg=PANEL2,
+            fg=CYAN,
+            activebackground=PANEL3,
+            activeforeground=TEXT,
+            bd=0,
+            relief="flat",
+            cursor="hand2",
+            font=("Segoe UI", 9, "bold"),
+            padx=9,
+            pady=6,
+        ).pack(side="left", padx=3)
 
         ttk.Button(
             toolbar,
@@ -1119,8 +1136,20 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             toolbar,
             "CosmicV Beta",
             "Drop an image anywhere in the app or use Open Image. "
-            "Drag the cyan divider across the preview to compare before and after.",
+            "Drag the cyan divider across the preview to compare before and after. "
+            "Mouse-wheel over the viewer zooms toward your cursor; right-drag pans while zoomed.",
         ).pack(side="left", padx=(5, 0))
+
+        tk.Label(
+            header,
+            text="CosmicV is original software and completely free - just like you!   •   Created at Cosmic Dave Studios.",
+            bg=PANEL,
+            fg=MUTED,
+            font=("Segoe UI", 9),
+            padx=14,
+            pady=(0, 7),
+            anchor="w",
+        ).grid(row=1, column=0, columnspan=2, sticky="ew")
 
         side_outer = tk.Frame(self, bg=PANEL, width=max(350, int(380 * self.ui_scale)))
         side_outer.grid(
@@ -1266,17 +1295,34 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self._section_head(
             quick_tab,
             "OUTPUT",
-            "Save Image exports the processed image. Save Comparison exports the current before/after split. "
-            "Clear removes the current image from the workspace.",
+            "Save As exports PNG, JPEG, WebP, GIF, ICO, BMP, or TIFF. "
+            "Avatar exports a centered 512×512 image at 300 DPI. Icon exports a multi-size Windows ICO.",
         )
         self.save_btn = ttk.Button(
             quick_tab,
-            text="Save Image",
+            text="Save As...",
             command=self.save_image,
             state="disabled",
             style="Accent.TButton",
         )
         self.save_btn.pack(fill="x", pady=(0, 6))
+
+        preset_out = ttk.Frame(quick_tab)
+        preset_out.pack(fill="x", pady=(0, 6))
+        self.avatar_btn = ttk.Button(
+            preset_out,
+            text="Avatar 512",
+            command=self.save_avatar,
+            state="disabled",
+        )
+        self.avatar_btn.pack(side="left", expand=True, fill="x", padx=(0, 3))
+        self.icon_btn = ttk.Button(
+            preset_out,
+            text="Windows Icon",
+            command=self.save_icon,
+            state="disabled",
+        )
+        self.icon_btn.pack(side="left", expand=True, fill="x", padx=(3, 0))
 
         outrow = ttk.Frame(quick_tab)
         outrow.pack(fill="x")
@@ -1394,20 +1440,12 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         color_content.bind("<Configure>", _sync_color_scrollregion)
         color_canvas.bind("<Configure>", _fit_color_content)
 
-        def _bind_color_wheel(_event):
-            color_canvas.bind_all("<MouseWheel>", _color_mousewheel)
-            color_canvas.bind_all("<Button-4>", _color_mousewheel)
-            color_canvas.bind_all("<Button-5>", _color_mousewheel)
-
-        def _unbind_color_wheel(_event):
-            color_canvas.unbind_all("<MouseWheel>")
-            color_canvas.unbind_all("<Button-4>")
-            color_canvas.unbind_all("<Button-5>")
-
-        color_canvas.bind("<Enter>", _bind_color_wheel)
-        color_canvas.bind("<Leave>", _unbind_color_wheel)
-        color_content.bind("<Enter>", _bind_color_wheel)
-        color_content.bind("<Leave>", _unbind_color_wheel)
+        def _bind_color_wheel_tree(widget):
+            widget.bind("<MouseWheel>", _color_mousewheel, add="+")
+            widget.bind("<Button-4>", _color_mousewheel, add="+")
+            widget.bind("<Button-5>", _color_mousewheel, add="+")
+            for child in widget.winfo_children():
+                _bind_color_wheel_tree(child)
 
         color_top = tk.Frame(color_content, bg=BG)
         color_top.pack(fill="x", pady=(0, 6))
@@ -1498,6 +1536,10 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             divisor=100,
             info="Changes midtone response while preserving the endpoints more than brightness does.",
         )
+        # Make the whole Color tab a scroll-wheel hitbox, including sliders,
+        # labels, entries, the hue wheel, and the visible scrollbar gutter.
+        self.after_idle(lambda: _bind_color_wheel_tree(color_tab))
+
         # EFFECTS TAB
         for text_label, variable, help_text in (
             ("Grayscale", self.gray_var, "Converts the processed image to monochrome."),
@@ -1580,6 +1622,37 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             text="Reset Transform",
             command=self.reset_transform,
         ).pack(fill="x", pady=(4, 10))
+
+        self._section_head(
+            transform_tab,
+            "CROP / RESIZE",
+            "Crop and Resize modify the current working image in memory only. "
+            "Reset Crop / Resize restores the image originally opened from disk.",
+        )
+        workrow = ttk.Frame(transform_tab)
+        workrow.pack(fill="x", pady=(0, 6))
+        self.crop_btn = ttk.Button(
+            workrow,
+            text="Crop...",
+            command=self.open_crop_dialog,
+            state="disabled",
+        )
+        self.crop_btn.pack(side="left", expand=True, fill="x", padx=(0, 3))
+        self.resize_btn = ttk.Button(
+            workrow,
+            text="Resize...",
+            command=self.open_resize_dialog,
+            state="disabled",
+        )
+        self.resize_btn.pack(side="left", expand=True, fill="x", padx=(3, 0))
+
+        self.geometry_reset_btn = ttk.Button(
+            transform_tab,
+            text="Reset Crop / Resize",
+            command=self.reset_working_geometry,
+            state="disabled",
+        )
+        self.geometry_reset_btn.pack(fill="x", pady=(0, 10))
 
         # Always-visible status under tabs.
         status_frame = tk.Frame(side_outer, bg=PANEL)
