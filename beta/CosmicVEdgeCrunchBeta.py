@@ -1084,7 +1084,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             fg=TEXT,
             font=("Segoe UI", 11, "bold"),
             padx=14,
-            pady=(9, 3),
+            pady=6,
         )
         brand.grid(row=0, column=0, sticky="w")
 
@@ -1147,7 +1147,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             fg=MUTED,
             font=("Segoe UI", 9),
             padx=14,
-            pady=(0, 7),
+            pady=4,
             anchor="w",
         ).grid(row=1, column=0, columnspan=2, sticky="ew")
 
