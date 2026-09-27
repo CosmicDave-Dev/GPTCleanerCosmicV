@@ -1868,6 +1868,307 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             else "View: 1:1 pixel scale (centered)."
         )
 
+    def _set_image_actions(self, state: str) -> None:
+        for name in (
+            "save_btn",
+            "compare_btn",
+            "avatar_btn",
+            "icon_btn",
+            "crop_btn",
+            "resize_btn",
+            "geometry_reset_btn",
+        ):
+            widget = getattr(self, name, None)
+            if widget is not None:
+                try:
+                    widget.configure(state=state)
+                except Exception:
+                    pass
+
+    def _refresh_working_image(self, reset_view: bool = True) -> None:
+        if self.original_full is None:
+            return
+
+        self.original_preview = fit_preview(self.original_full)
+        self.cleaned_preview = self.original_preview.copy()
+        self.mask_preview = np.zeros(
+            self.original_preview.shape[:2],
+            dtype=np.float32,
+        )
+
+        h, w = self.original_full.shape[:2]
+        ph, pw = self.original_preview.shape[:2]
+        name = self.source_path.name if self.source_path else "working image"
+        self.file_var.set(
+            f"{name}   {w}×{h}   preview {pw}×{ph}"
+        )
+
+        if reset_view:
+            self.viewer.set_view_mode("fit")
+
+        self.viewer.set_images(
+            self.original_preview,
+            self.cleaned_preview,
+            self.mask_preview,
+        )
+        self._set_image_actions("normal")
+        self.clear_btn.configure(state="normal")
+        self.request_preview()
+
+    def reset_working_geometry(self) -> None:
+        if self.original_source_full is None:
+            return
+        self.original_full = self.original_source_full.copy()
+        self._refresh_working_image(reset_view=True)
+        self.status.set("Crop / resize reset to the image originally opened.")
+
+    def open_crop_dialog(self) -> None:
+        if self.original_full is None:
+            return
+
+        h, w = self.original_full.shape[:2]
+        dialog = tk.Toplevel(self)
+        dialog.title("Crop Working Image")
+        dialog.configure(bg=BG)
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        tk.Label(
+            dialog,
+            text=f"Current working image: {w} × {h}",
+            bg=BG,
+            fg=TEXT,
+            font=("Segoe UI", 11, "bold"),
+            padx=14,
+            pady=(12, 5),
+        ).grid(row=0, column=0, columnspan=4, sticky="w")
+
+        tk.Label(
+            dialog,
+            text="Crop coordinates are pixels from the top-left of the current working image.",
+            bg=BG,
+            fg=MUTED,
+            padx=14,
+            pady=(0, 8),
+        ).grid(row=1, column=0, columnspan=4, sticky="w")
+
+        x_var = tk.StringVar(value="0")
+        y_var = tk.StringVar(value="0")
+        width_var = tk.StringVar(value=str(w))
+        height_var = tk.StringVar(value=str(h))
+
+        def field(label, var, row, col):
+            tk.Label(
+                dialog,
+                text=label,
+                bg=BG,
+                fg=TEXT,
+                padx=7,
+                pady=4,
+            ).grid(row=row, column=col, sticky="e")
+            entry = tk.Entry(
+                dialog,
+                textvariable=var,
+                width=9,
+                bg=PANEL2,
+                fg=CYAN,
+                insertbackground=CYAN,
+                relief="flat",
+                font=("Consolas", 10),
+            )
+            entry.grid(row=row, column=col + 1, padx=(0, 10), pady=4)
+            return entry
+
+        field("X", x_var, 2, 0)
+        field("Y", y_var, 2, 2)
+        field("Width", width_var, 3, 0)
+        field("Height", height_var, 3, 2)
+
+        def center_square():
+            side = min(w, h)
+            x_var.set(str((w - side) // 2))
+            y_var.set(str((h - side) // 2))
+            width_var.set(str(side))
+            height_var.set(str(side))
+
+        def apply_crop():
+            try:
+                x = int(x_var.get())
+                y = int(y_var.get())
+                cw = int(width_var.get())
+                ch = int(height_var.get())
+            except ValueError:
+                messagebox.showerror(
+                    "Crop",
+                    "X, Y, Width, and Height must be whole numbers.",
+                    parent=dialog,
+                )
+                return
+
+            if cw < 1 or ch < 1:
+                messagebox.showerror(
+                    "Crop",
+                    "Crop width and height must be at least 1 pixel.",
+                    parent=dialog,
+                )
+                return
+
+            x = max(0, min(x, w - 1))
+            y = max(0, min(y, h - 1))
+            x2 = min(w, x + cw)
+            y2 = min(h, y + ch)
+
+            if x2 <= x or y2 <= y:
+                messagebox.showerror(
+                    "Crop",
+                    "That crop rectangle falls outside the image.",
+                    parent=dialog,
+                )
+                return
+
+            self.original_full = np.ascontiguousarray(
+                self.original_full[y:y2, x:x2]
+            )
+            dialog.destroy()
+            self._refresh_working_image(reset_view=True)
+            nh, nw = self.original_full.shape[:2]
+            self.status.set(f"Working image cropped to {nw}×{nh}.")
+
+        buttons = ttk.Frame(dialog)
+        buttons.grid(row=4, column=0, columnspan=4, sticky="ew", padx=14, pady=12)
+        ttk.Button(
+            buttons,
+            text="Center Square",
+            command=center_square,
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Cancel",
+            command=dialog.destroy,
+        ).pack(side="right", padx=(6, 0))
+        ttk.Button(
+            buttons,
+            text="Apply Crop",
+            command=apply_crop,
+            style="Accent.TButton",
+        ).pack(side="right")
+
+    def open_resize_dialog(self) -> None:
+        if self.original_full is None:
+            return
+
+        h, w = self.original_full.shape[:2]
+        dialog = tk.Toplevel(self)
+        dialog.title("Resize Working Image")
+        dialog.configure(bg=BG)
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        tk.Label(
+            dialog,
+            text=f"Current working image: {w} × {h}",
+            bg=BG,
+            fg=TEXT,
+            font=("Segoe UI", 11, "bold"),
+            padx=14,
+            pady=(12, 8),
+        ).grid(row=0, column=0, columnspan=4, sticky="w")
+
+        width_var = tk.StringVar(value=str(w))
+        height_var = tk.StringVar(value=str(h))
+        preserve_var = tk.BooleanVar(value=True)
+
+        for col, (label, var) in enumerate(
+            (("Width", width_var), ("Height", height_var))
+        ):
+            tk.Label(
+                dialog,
+                text=label,
+                bg=BG,
+                fg=TEXT,
+                padx=7,
+            ).grid(row=1, column=col * 2, sticky="e")
+            tk.Entry(
+                dialog,
+                textvariable=var,
+                width=10,
+                bg=PANEL2,
+                fg=CYAN,
+                insertbackground=CYAN,
+                relief="flat",
+                font=("Consolas", 10),
+            ).grid(row=1, column=col * 2 + 1, padx=(0, 10), pady=4)
+
+        ttk.Checkbutton(
+            dialog,
+            text="Preserve aspect ratio (fit inside requested box)",
+            variable=preserve_var,
+        ).grid(row=2, column=0, columnspan=4, sticky="w", padx=14, pady=(5, 8))
+
+        def apply_resize():
+            try:
+                target_w = int(width_var.get())
+                target_h = int(height_var.get())
+            except ValueError:
+                messagebox.showerror(
+                    "Resize",
+                    "Width and Height must be whole numbers.",
+                    parent=dialog,
+                )
+                return
+
+            if target_w < 1 or target_h < 1:
+                messagebox.showerror(
+                    "Resize",
+                    "Width and Height must be at least 1 pixel.",
+                    parent=dialog,
+                )
+                return
+
+            if preserve_var.get():
+                scale = min(target_w / w, target_h / h)
+                target_w2 = max(1, int(round(w * scale)))
+                target_h2 = max(1, int(round(h * scale)))
+            else:
+                target_w2 = target_w
+                target_h2 = target_h
+
+            self.original_full = resize_rgb(
+                self.original_full,
+                target_w2,
+                target_h2,
+            )
+            dialog.destroy()
+            self._refresh_working_image(reset_view=True)
+            self.status.set(
+                f"Working image resized to {target_w2}×{target_h2}."
+            )
+
+        buttons = ttk.Frame(dialog)
+        buttons.grid(row=3, column=0, columnspan=4, sticky="ew", padx=14, pady=12)
+        ttk.Button(
+            buttons,
+            text="512 × 512",
+            command=lambda: (
+                width_var.set("512"),
+                height_var.set("512"),
+                preserve_var.set(False),
+            ),
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Cancel",
+            command=dialog.destroy,
+        ).pack(side="right", padx=(6, 0))
+        ttk.Button(
+            buttons,
+            text="Apply Resize",
+            command=apply_resize,
+            style="Accent.TButton",
+        ).pack(side="right")
+
     def _enable_file_drop(self) -> None:
         if TkinterDnD is None or DND_FILES is None:
             self.status.set(
@@ -1896,7 +2197,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
                 continue
             candidate = Path(path)
             if candidate.suffix.lower() in {
-                ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"
+                ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".bmp", ".tif", ".tiff"
             }:
                 self.after_idle(lambda p=str(candidate): self.load_image(p))
                 self.status.set(f"Dropped: {candidate.name}")
@@ -1907,7 +2208,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
     def open_image(self) -> None:
         path = filedialog.askopenfilename(
             filetypes=[
-                ("Images", "*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff"),
+                ("Images", "*.png *.jpg *.jpeg *.webp *.gif *.ico *.bmp *.tif *.tiff"),
                 ("All files", "*.*"),
             ]
         )
@@ -1917,7 +2218,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
     def load_image(self, path: str | Path) -> None:
         path = Path(path)
         if path.suffix.lower() not in {
-            ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"
+            ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".bmp", ".tif", ".tiff"
         }:
             messagebox.showerror(
                 APP_TITLE,
@@ -1931,30 +2232,12 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             return
 
         self.source_path = path
-        self.original_full = full
-        self.original_preview = fit_preview(full)
-        self.cleaned_preview = self.original_preview.copy()
-        self.mask_preview = np.zeros(
-            self.original_preview.shape[:2],
-            dtype=np.float32,
-        )
-
-        h, w = full.shape[:2]
-        ph, pw = self.original_preview.shape[:2]
-        self.file_var.set(
-            f"{self.source_path.name}   {w}×{h}   preview {pw}×{ph}"
-        )
-        self.save_btn.configure(state="normal")
-        self.compare_btn.configure(state="normal")
-        self.clear_btn.configure(state="normal")
-        self.viewer.set_images(
-            self.original_preview,
-            self.cleaned_preview,
-            self.mask_preview,
-        )
-        self.request_preview()
+        self.original_source_full = full.copy()
+        self.original_full = full.copy()
+        self._refresh_working_image(reset_view=True)
 
     def clear_image(self) -> None:
+        self.original_source_full = None
         self.original_full = None
         self.original_preview = None
         self.cleaned_preview = None
@@ -1962,8 +2245,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         self.source_path = None
         self.file_var.set("Drop an image from Windows Explorer or click Open Image")
         self.viewer.clear()
-        self.save_btn.configure(state="disabled")
-        self.compare_btn.configure(state="disabled")
+        self._set_image_actions("disabled")
         self.clear_btn.configure(state="disabled")
         self.status.set("Workspace cleared.")
 
