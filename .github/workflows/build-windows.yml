@@ -1,15 +1,8 @@
 name: Build Windows EXE
 
+# Final standalone publishing is intentionally manual.
+# Beta/source commits must not overwrite the public rolling release.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "beta/CosmicVEdgeCrunchBeta.py"
-      - "requirements.txt"
-      - "version_info.txt"
-      - "assets/**"
-      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
 
 permissions:
