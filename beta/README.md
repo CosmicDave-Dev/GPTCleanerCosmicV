@@ -2,10 +2,11 @@
 
 This is the lightweight experimental branch for Ganja/Dave testing.
 
-The beta is distributed as a **small two-file ZIP**:
+The beta is distributed as a **small click-to-run ZIP** containing:
 
 - `RUN-CosmicV-Beta.bat`
 - `CosmicV-EdgeCrunch-Darkroom-Beta.py`
+- beta-local `_vendor/tkinterdnd2` support for Windows Explorer drag-and-drop
 
 Extract the ZIP and double-click the BAT launcher. The launcher explicitly invokes the installed Python interpreter, so it does not depend on Windows `.py` or `.pyw` file associations.
 
@@ -56,7 +57,7 @@ This requirement is deliberate for rapid beta iteration. The normal public relea
 
 The beta is deliberately kept small because it relies on the tester's already-installed Python/OpenCV/NumPy/Pillow environment.
 
-- Distribution: ZIP containing one BAT launcher and one readable Python script
+- Distribution: ZIP containing the BAT launcher, readable Python app, and local drag/drop support
 - Soft target: 512 KB
 - Hard ceiling: 1,000,000 bytes
 - CI fails packaging if the beta file exceeds the hard ceiling
