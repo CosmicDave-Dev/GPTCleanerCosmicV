@@ -1,0 +1,74 @@
+name: Restore Stable CosmicV Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/restore-stable-release.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  restore:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download last known-good artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 36070050239 --repo "${{ github.repository }}" --name "GPTCleanerCosmicV-v0.2.0-Windows-x64" --dir "restore"
+          Get-ChildItem restore -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Restore rolling release assets and notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $exe = Get-ChildItem restore -Recurse -File -Filter "GPTCleanerCosmicV.exe" | Select-Object -First 1
+          $zip = Get-ChildItem restore -Recurse -File -Filter "GPTCleanerCosmicV-v0.2.0-Windows-x64.zip" | Select-Object -First 1
+          if (-not $exe -or -not $zip) { Write-Error "Could not locate stable EXE and ZIP in historical artifact."; exit 1 }
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          $notes = @(
+            "CosmicV EdgeCrunch Darkroom is a portable Windows application for AI-image artifact cleanup and darkroom adjustment.",
+            "",
+            "## Stable Darkroom build",
+            "",
+            "- EdgeCrunch cleanup with curated presets and advanced controls",
+            "- Before/after draggable comparison",
+            "- Target-mask diagnostic view",
+            "- Color Lab with hue wheel, brightness, contrast, saturation, warmth, exposure, gamma, and adjustment mix",
+            "- Effects and lossless rotate/flip controls",
+            "- Scrollable Color tab for lower-resolution displays",
+            "- Native high-DPI Windows rendering",
+            "- Explorer drag-and-drop",
+            "- Full-resolution save and comparison export",
+            "- Standalone Windows EXE with Python, OpenCV, NumPy, Pillow, and tkinterdnd2 bundled",
+            "",
+            "## Install",
+            "",
+            "Download **GPTCleanerCosmicV.exe** and run it. No separate Python install is required.",
+            "",
+            "Windows SmartScreen may warn because the executable is not code-signed.",
+            "",
+            "**EXE SHA-256:** $hash"
+          )
+          $notes | Set-Content -Encoding UTF8 "restore-notes.md"
+          gh release upload "AI_Image_Artifact_Removal" $exe.FullName $zip.FullName --clobber --repo "${{ github.repository }}"
+          gh release edit "AI_Image_Artifact_Removal" --title "CosmicV EdgeCrunch Darkroom" --notes-file "restore-notes.md" --latest --repo "${{ github.repository }}"
+
+      - name: Restore rolling release tag
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "AI_Image_Artifact_Removal" "e331a860e3d134abb29831c29d35266d977da8ae"
+          git push origin "refs/tags/AI_Image_Artifact_Removal" --force
