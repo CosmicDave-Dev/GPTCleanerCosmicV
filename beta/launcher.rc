@@ -1,4 +1,0 @@
-#include <windows.h>
-
-1 ICON "../assets/CosmicDaveIcon.ico"
-101 RCDATA "CosmicVEdgeCrunchBeta.py"
