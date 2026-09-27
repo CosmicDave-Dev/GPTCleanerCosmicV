@@ -1,8 +1,8 @@
 name: Build CosmicV EdgeCrunch Darkroom V1.4
 
-# V1.4 finalizer: this push trigger is temporary so this workflow can build
-# the newly frozen release. After the successful release, it returns to
-# manual-only operation.
+# V1.4 clean finalizer: this push trigger is temporary so the frozen,
+# normalized repository builds once as the release source. After success,
+# this workflow returns to manual-only operation.
 on:
   push:
     branches:
