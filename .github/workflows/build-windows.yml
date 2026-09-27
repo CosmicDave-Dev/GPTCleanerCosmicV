@@ -1,14 +1,8 @@
 name: Build CosmicV EdgeCrunch Darkroom V1.4
 
-# V1.4 clean finalizer: this push trigger is temporary so the frozen,
-# normalized repository builds once as the release source. After success,
-# this workflow returns to manual-only operation.
+# Final standalone publishing is manual-only.
+# Source edits do not overwrite the public release until explicitly published.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
 
 permissions:
