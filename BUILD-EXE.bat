@@ -53,6 +53,7 @@ python -m PyInstaller ^
     --noupx ^
     --name "CosmicV-EdgeCrunch-Darkroom" ^
     --icon "assets\CosmicDaveIcon.ico" ^
+    --add-data "assets\CosmicDaveIcon.ico;." ^
     --version-file "version_info.txt" ^
     --hidden-import "PIL._tkinter_finder" ^
     --collect-all "tkinterdnd2" ^
