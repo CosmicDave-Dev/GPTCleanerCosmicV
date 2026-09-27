@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-ns = runpy.run_path("CosmicVEdgeCrunchDarkroom.py", run_name="cosmicv_beta_test")
+ns = runpy.run_path("CosmicVEdgeCrunchDarkroom.py", run_name="cosmicv_v14_test")
 
 image = np.zeros((96, 128, 3), dtype=np.uint8)
 image[..., 0] = np.arange(128, dtype=np.uint8)[None, :]
