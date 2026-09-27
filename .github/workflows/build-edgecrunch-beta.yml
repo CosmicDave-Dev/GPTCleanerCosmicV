@@ -49,6 +49,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist-beta/CosmicV-Beta | Out-Null
           Copy-Item beta/CosmicVEdgeCrunchBeta.py dist-beta/CosmicV-Beta/CosmicV-EdgeCrunch-Darkroom-Beta.py
           Copy-Item beta/RUN-CosmicV-Beta.bat dist-beta/CosmicV-Beta/RUN-CosmicV-Beta.bat
+          Copy-Item assets/CosmicDaveIcon.ico dist-beta/CosmicV-Beta/CosmicDaveIcon.ico
 
           # Vendor only the drag/drop support needed by the beta. It stays local
           # to the ZIP and does not modify the tester's Python installation.
