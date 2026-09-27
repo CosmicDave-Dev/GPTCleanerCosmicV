@@ -1,8 +1,14 @@
-name: Build Windows EXE
+name: Build CosmicV EdgeCrunch Darkroom V1.4
 
-# Final standalone publishing is intentionally manual.
-# Beta/source commits must not overwrite the public rolling release.
+# V1.4 finalizer: this push trigger is temporary so this workflow can build
+# the newly frozen release. After the successful release, it returns to
+# manual-only operation.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,13 +36,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install tkinterdnd2==0.6.3 pyinstaller
+          python -m pip install pyinstaller
 
-      - name: Validate final source
+      - name: Validate V1.4 source
         shell: pwsh
         run: |
-          python -m py_compile beta/CosmicVEdgeCrunchBeta.py
-          python beta/smoke_test.py
+          python -m py_compile CosmicVEdgeCrunchDarkroom.py
+          python tests/smoke_test.py
 
       - name: Build standalone EXE
         shell: pwsh
@@ -47,83 +53,96 @@ jobs:
             --onefile `
             --windowed `
             --noupx `
-            --name "GPTCleanerCosmicV" `
+            --name "CosmicV-EdgeCrunch-Darkroom" `
             --icon "assets/CosmicDaveIcon.ico" `
+            --add-data "assets/CosmicDaveIcon.ico;." `
             --version-file "version_info.txt" `
             --hidden-import "PIL._tkinter_finder" `
             --collect-all "tkinterdnd2" `
-            "beta/CosmicVEdgeCrunchBeta.py"
+            "CosmicVEdgeCrunchDarkroom.py"
 
-      - name: Stage release files
+      - name: Stage V1.4 release
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Copy-Item "dist/GPTCleanerCosmicV.exe" "release/GPTCleanerCosmicV.exe"
+          Copy-Item "dist/CosmicV-EdgeCrunch-Darkroom.exe" "release/CosmicV-EdgeCrunch-Darkroom.exe"
           Copy-Item "LICENSE" "release/LICENSE.txt"
           Copy-Item "docs/WINDOWS-EXE-INSTALL.txt" "release/README.txt"
           Compress-Archive -Force `
-            -Path "release/GPTCleanerCosmicV.exe","release/LICENSE.txt","release/README.txt" `
-            -DestinationPath "GPTCleanerCosmicV-v0.2.0-Windows-x64.zip"
+            -Path "release/CosmicV-EdgeCrunch-Darkroom.exe","release/LICENSE.txt","release/README.txt" `
+            -DestinationPath "CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GPTCleanerCosmicV-v0.2.0-Windows-x64
+          name: CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64
           path: |
             release/*
-            GPTCleanerCosmicV-v0.2.0-Windows-x64.zip
+            CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip
           if-no-files-found: error
           compression-level: 6
 
-      - name: Prepare release notes
+      - name: Prepare V1.4 release notes
         shell: pwsh
         run: |
-          $hash = (Get-FileHash "release/GPTCleanerCosmicV.exe" -Algorithm SHA256).Hash.ToLower()
+          $hash = (Get-FileHash "release/CosmicV-EdgeCrunch-Darkroom.exe" -Algorithm SHA256).Hash.ToLower()
           @"
-          CosmicV EdgeCrunch Darkroom is a portable Windows application for AI-image artifact cleanup and darkroom adjustment.
+          # CosmicV EdgeCrunch Darkroom V1.4
 
-          ## Final Darkroom build
+          CosmicV EdgeCrunch Darkroom is a local Windows image-cleaning and darkroom utility created at **Cosmic Dave Studios**.
 
-          - EdgeCrunch cleanup with curated presets and advanced controls
-          - Before/after draggable comparison
-          - Target-mask diagnostic view
-          - Color Lab with hue wheel, brightness, contrast, saturation, warmth, exposure, gamma, and adjustment mix
-          - Effects and lossless rotate/flip controls
-          - Scrollable Color tab for lower-resolution displays
-          - Native high-DPI Windows rendering
+          **CosmicV is original software and completely free - just like you!**
+
+          ## V1.4
+
+          - EdgeCrunch cleanup with Conservative, Balanced, Strong, and Aggressive presets
+          - Advanced cleanup controls with numerical input
+          - Draggable before/after comparison and Target Mask diagnostic view
+          - Cursor-centered mouse-wheel zoom and right-drag pan
           - Explorer drag-and-drop
-          - Full-resolution save and comparison export
-          - Standalone Windows EXE with Python, OpenCV, NumPy, Pillow, and tkinterdnd2 bundled
+          - Color Lab with hue wheel, brightness, contrast, saturation, warmth, exposure, gamma, and adjustment mix
+          - Grayscale, sepia, invert, blur, sharpen, and vignette
+          - Rotate and flip controls
+          - Save and Save As workflow
+          - PNG, JPEG, WebP, GIF, ICO, BMP, and TIFF export
+          - 512 x 512 avatar export with 300 DPI metadata where supported
+          - Multi-resolution Windows ICO export
+          - Current Version link in the application header
+          - High-DPI Windows rendering and F11 fullscreen mode
+          - Cosmic Dave Studios Spade application icon
+          - Standalone EXE with Python and runtime dependencies bundled
+
+          Crop and freeform resize controls are intentionally not included in V1.4.
 
           ## Install
 
-          Download **GPTCleanerCosmicV.exe** and run it. No separate Python install is required.
+          Download **CosmicV-EdgeCrunch-Darkroom.exe** and run it. No separate Python installation is required.
 
           Windows SmartScreen may warn because the executable is not code-signed.
 
           **EXE SHA-256:** $hash
           "@ | Set-Content -Encoding UTF8 "release-notes.md"
 
-      - name: Update rolling GitHub release
+      - name: Publish GitHub release V1.4
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "AI_Image_Artifact_Removal" `
-            "release/GPTCleanerCosmicV.exe" `
-            "GPTCleanerCosmicV-v0.2.0-Windows-x64.zip" `
-            --clobber
-          gh release edit "AI_Image_Artifact_Removal" `
-            --title "CosmicV EdgeCrunch Darkroom" `
-            --notes-file "release-notes.md" `
-            --latest
+          $tag = "V1.4"
+          $exe = "release/CosmicV-EdgeCrunch-Darkroom.exe"
+          $zip = "CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip"
 
-      - name: Move rolling release tag to this commit
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "AI_Image_Artifact_Removal" "$env:GITHUB_SHA"
-          git push origin "refs/tags/AI_Image_Artifact_Removal" --force
-
-# Rolling release publisher: EdgeCrunch Darkroom final
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $exe $zip --clobber
+            gh release edit $tag `
+              --title "CosmicV EdgeCrunch Darkroom V1.4" `
+              --notes-file "release-notes.md" `
+              --latest
+          } else {
+            gh release create $tag $exe $zip `
+              --target "$env:GITHUB_SHA" `
+              --title "CosmicV EdgeCrunch Darkroom V1.4" `
+              --notes-file "release-notes.md" `
+              --latest
+          }
