@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import queue
 import sys
+import webbrowser
 import tkinter as tk
 import tkinter.font as tkfont
 from concurrent.futures import ThreadPoolExecutor
@@ -37,6 +38,8 @@ except Exception as exc:
     raise
 
 APP_TITLE = "CosmicV EdgeCrunch Darkroom"
+APP_VERSION = "v0.4.0-beta"
+CURRENT_RELEASE_URL = "https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/tag/AI_Image_Artifact_Removal"
 PREVIEW_MAX_W = 3840
 PREVIEW_MAX_H = 2160
 
@@ -317,36 +320,95 @@ def process_rgb(
 
 
 def read_rgb(path: str | Path) -> np.ndarray:
-    data = np.fromfile(str(path), dtype=np.uint8)
-    bgr = cv2.imdecode(data, cv2.IMREAD_COLOR)
-    if bgr is None:
-        raise ValueError(f"Could not read image:\n{path}")
-    return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    """Read the first frame of an image through Pillow for broad format support."""
+    path = Path(path)
+    try:
+        with Image.open(path) as image:
+            return np.asarray(image.convert("RGB"), dtype=np.uint8).copy()
+    except Exception as exc:
+        raise ValueError(f"Could not read image:\n{path}\n\n{exc}") from exc
 
 
-def write_rgb(path: str | Path, rgb: np.ndarray) -> Path:
+def center_square_rgb(rgb: np.ndarray) -> np.ndarray:
+    """Return a centered square crop without modifying the source array."""
+    h, w = rgb.shape[:2]
+    side = min(h, w)
+    y = max(0, (h - side) // 2)
+    x = max(0, (w - side) // 2)
+    return np.ascontiguousarray(rgb[y:y + side, x:x + side])
+
+
+def resize_rgb(rgb: np.ndarray, width: int, height: int) -> np.ndarray:
+    width = max(1, int(width))
+    height = max(1, int(height))
+    h, w = rgb.shape[:2]
+    interpolation = (
+        cv2.INTER_AREA
+        if width <= w and height <= h
+        else cv2.INTER_LANCZOS4
+    )
+    return cv2.resize(
+        rgb,
+        (width, height),
+        interpolation=interpolation,
+    )
+
+
+def write_rgb(
+    path: str | Path,
+    rgb: np.ndarray,
+    dpi: tuple[int, int] | None = None,
+    icon_sizes: list[tuple[int, int]] | None = None,
+) -> Path:
+    """Save RGB output through Pillow, including GIF and multi-size ICO."""
     path = Path(path)
     suffix = path.suffix.lower()
-    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+    supported = {
+        ".png", ".jpg", ".jpeg", ".webp", ".gif",
+        ".ico", ".bmp", ".tif", ".tiff",
+    }
+    if suffix not in supported:
         path = path.with_suffix(".png")
         suffix = ".png"
 
-    ext = ".jpg" if suffix == ".jpeg" else suffix
-    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    params: list[int] = []
+    image = Image.fromarray(rgb.astype(np.uint8), mode="RGB")
+    save_kwargs: dict = {}
 
-    if ext == ".jpg":
-        params = [cv2.IMWRITE_JPEG_QUALITY, 96]
-    elif ext == ".webp":
-        params = [cv2.IMWRITE_WEBP_QUALITY, 96]
+    if dpi is not None and suffix in {
+        ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"
+    }:
+        save_kwargs["dpi"] = dpi
 
-    ok, buf = cv2.imencode(ext, bgr, params)
-    if not ok:
-        raise ValueError(f"Could not encode {ext}")
+    if suffix in {".jpg", ".jpeg"}:
+        save_kwargs.update(
+            quality=96,
+            optimize=True,
+            subsampling=0,
+        )
+    elif suffix == ".webp":
+        save_kwargs.update(
+            quality=96,
+            method=6,
+        )
+    elif suffix == ".gif":
+        image = image.convert("P", palette=Image.Palette.ADAPTIVE)
+        save_kwargs["optimize"] = True
+    elif suffix == ".ico":
+        image = Image.fromarray(center_square_rgb(rgb), mode="RGB")
+        if image.size != (256, 256):
+            image = image.resize((256, 256), Image.Resampling.LANCZOS)
+        save_kwargs["sizes"] = icon_sizes or [
+            (16, 16),
+            (24, 24),
+            (32, 32),
+            (48, 48),
+            (64, 64),
+            (128, 128),
+            (256, 256),
+        ]
 
-    buf.tofile(str(path))
+    image.save(path, **save_kwargs)
     return path
-
 
 def fit_preview(rgb: np.ndarray) -> np.ndarray:
     h, w = rgb.shape[:2]
