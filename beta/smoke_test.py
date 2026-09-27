@@ -1,4 +1,7 @@
 import runpy
+import tempfile
+from pathlib import Path
+
 import numpy as np
 
 ns = runpy.run_path("beta/CosmicVEdgeCrunchBeta.py", run_name="cosmicv_beta_test")
@@ -25,6 +28,7 @@ darkroom = dict(
     exposure=0.10,
     gamma=1.05,
     hue_degrees=12.0,
+    color_mix=1.0,
     grayscale=False,
     sepia=False,
     invert=False,
@@ -51,6 +55,7 @@ neutral = dict(
     exposure=0.0,
     gamma=1.0,
     hue_degrees=0.0,
+    color_mix=1.0,
     grayscale=False,
     sepia=False,
     invert=False,
@@ -67,4 +72,27 @@ assert out2.shape == image.shape
 assert original2.shape == image.shape
 assert mask2.shape == image.shape[:2]
 
-print("CosmicV beta image-pipeline smoke test passed.")
+square = ns["center_square_rgb"](image)
+assert square.shape == (96, 96, 3)
+
+avatar = ns["resize_rgb"](square, 512, 512)
+assert avatar.shape == (512, 512, 3)
+
+with tempfile.TemporaryDirectory() as td:
+    root = Path(td)
+    export_cases = [
+        ("sample.png", {}),
+        ("sample.jpg", {}),
+        ("sample.webp", {}),
+        ("sample.gif", {}),
+        ("sample.ico", {}),
+        ("sample.bmp", {}),
+        ("sample.tiff", {}),
+        ("avatar.png", {"dpi": (300, 300)}),
+    ]
+    for filename, kwargs in export_cases:
+        saved = ns["write_rgb"](root / filename, avatar, **kwargs)
+        assert saved.exists()
+        assert saved.stat().st_size > 0
+
+print("CosmicV beta pipeline/export smoke test passed.")
