@@ -1877,6 +1877,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
             "crop_btn",
             "resize_btn",
             "geometry_reset_btn",
+            "clear_btn",
         ):
             widget = getattr(self, name, None)
             if widget is not None:
@@ -2298,6 +2299,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
     def save_image(self) -> None:
         if self.original_full is None or self.saving:
             return
+
         stem = self.source_path.stem if self.source_path else "image"
         path = filedialog.asksaveasfilename(
             defaultextension=".png",
@@ -2306,19 +2308,28 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
                 ("PNG", "*.png"),
                 ("JPEG", "*.jpg *.jpeg"),
                 ("WebP", "*.webp"),
+                ("GIF", "*.gif"),
+                ("Windows Icon", "*.ico"),
+                ("Bitmap", "*.bmp"),
+                ("TIFF", "*.tif *.tiff"),
             ],
         )
         if not path:
             return
 
         self.saving = True
-        self.save_btn.configure(state="disabled")
+        self._set_image_actions("disabled")
         self.status.set("Processing full-resolution image...")
         image = self.original_full.copy()
         settings = self.settings()
         darkroom = self.darkroom_settings()
 
-        future = self.pool.submit(process_rgb, image, settings, darkroom)
+        future = self.pool.submit(
+            process_rgb,
+            image,
+            settings,
+            darkroom,
+        )
 
         def done(f):
             try:
@@ -2332,6 +2343,114 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
 
         future.add_done_callback(done)
 
+    def save_avatar(self) -> None:
+        """Export a centered 512×512 avatar with 300 DPI metadata."""
+        if self.original_full is None or self.saving:
+            return
+
+        stem = self.source_path.stem if self.source_path else "avatar"
+        path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            initialfile=f"{stem}_avatar_512.png",
+            filetypes=[
+                ("PNG", "*.png"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("WebP", "*.webp"),
+            ],
+        )
+        if not path:
+            return
+
+        self.saving = True
+        self._set_image_actions("disabled")
+        self.status.set("Building 512×512 avatar at 300 DPI...")
+
+        image = self.original_full.copy()
+        settings = self.settings()
+        darkroom = self.darkroom_settings()
+
+        def job():
+            out, _mask, _original_display = process_rgb(
+                image,
+                settings,
+                darkroom,
+            )
+            avatar = resize_rgb(center_square_rgb(out), 512, 512)
+            return write_rgb(
+                path,
+                avatar,
+                dpi=(300, 300),
+            )
+
+        future = self.pool.submit(job)
+
+        def done(f):
+            try:
+                saved = f.result()
+                err = None
+            except Exception as exc:
+                saved = None
+                err = exc
+            self.results.put(("save_preset", "Avatar", saved, err))
+
+        future.add_done_callback(done)
+
+    def save_icon(self) -> None:
+        """Export a multi-resolution Windows ICO from a centered square crop."""
+        if self.original_full is None or self.saving:
+            return
+
+        stem = self.source_path.stem if self.source_path else "icon"
+        path = filedialog.asksaveasfilename(
+            defaultextension=".ico",
+            initialfile=f"{stem}_icon.ico",
+            filetypes=[("Windows Icon", "*.ico")],
+        )
+        if not path:
+            return
+
+        self.saving = True
+        self._set_image_actions("disabled")
+        self.status.set("Building multi-size Windows icon...")
+
+        image = self.original_full.copy()
+        settings = self.settings()
+        darkroom = self.darkroom_settings()
+
+        def job():
+            out, _mask, _original_display = process_rgb(
+                image,
+                settings,
+                darkroom,
+            )
+            square = center_square_rgb(out)
+            return write_rgb(
+                path,
+                square,
+                icon_sizes=[
+                    (16, 16),
+                    (24, 24),
+                    (32, 32),
+                    (48, 48),
+                    (64, 64),
+                    (128, 128),
+                    (256, 256),
+                ],
+            )
+
+        future = self.pool.submit(job)
+
+        def done(f):
+            try:
+                saved = f.result()
+                err = None
+            except Exception as exc:
+                saved = None
+                err = exc
+            self.results.put(("save_preset", "Icon", saved, err))
+
+        future.add_done_callback(done)
+
     def save_comparison(self) -> None:
         if self.original_full is None or self.saving:
             return
@@ -2339,13 +2458,20 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
         path = filedialog.asksaveasfilename(
             defaultextension=".png",
             initialfile=f"{stem}_comparison.png",
-            filetypes=[("PNG", "*.png"), ("JPEG", "*.jpg *.jpeg")],
+            filetypes=[
+                ("PNG", "*.png"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("WebP", "*.webp"),
+                ("GIF", "*.gif"),
+                ("Bitmap", "*.bmp"),
+                ("TIFF", "*.tif *.tiff"),
+            ],
         )
         if not path:
             return
 
         self.saving = True
-        self.compare_btn.configure(state="disabled")
+        self._set_image_actions("disabled")
         self.status.set("Rendering full-resolution comparison...")
         image = self.original_full.copy()
         settings = self.settings()
@@ -2412,7 +2538,7 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
                 elif msg[0] == "save":
                     _, saved, err = msg
                     self.saving = False
-                    self.save_btn.configure(state="normal")
+                    self._set_image_actions("normal")
                     if err:
                         self.status.set("Save failed.")
                         messagebox.showerror(APP_TITLE, str(err))
@@ -2422,13 +2548,25 @@ class App(TkinterDnD.Tk if TkinterDnD is not None else tk.Tk):
                 elif msg[0] == "save_compare":
                     _, saved, err = msg
                     self.saving = False
-                    self.compare_btn.configure(state="normal")
+                    self._set_image_actions("normal")
                     if err:
                         self.status.set("Comparison save failed.")
                         messagebox.showerror(APP_TITLE, str(err))
                     else:
                         self.status.set(
                             f"Comparison saved: {Path(saved).name}"
+                        )
+
+                elif msg[0] == "save_preset":
+                    _, preset_name, saved, err = msg
+                    self.saving = False
+                    self._set_image_actions("normal")
+                    if err:
+                        self.status.set(f"{preset_name} export failed.")
+                        messagebox.showerror(APP_TITLE, str(err))
+                    else:
+                        self.status.set(
+                            f"{preset_name} saved: {Path(saved).name}"
                         )
 
         except queue.Empty:
