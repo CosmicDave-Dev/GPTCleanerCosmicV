@@ -497,3 +497,19 @@ body.processing .viewer-dropzone::after {
   scrollbar-color: var(--cyan) var(--panel);
   scrollbar-width: thin;
 }
+
+
+.hue-wheel-wrap {
+  display: grid;
+  place-items: center;
+  padding: 4px 0 8px;
+}
+
+.hue-wheel {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  cursor: crosshair;
+  touch-action: none;
+  filter: drop-shadow(0 0 14px rgba(57,215,255,.14));
+}
