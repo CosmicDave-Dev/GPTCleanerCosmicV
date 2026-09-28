@@ -36,6 +36,7 @@ Implemented:
 - top-bar Save / Save As workflow beside Current Version
 - Save As format chooser for PNG / JPEG / WebP
 - Save reuses the most recent format/target during the session
+- Firefox Save As uses an explicit rename dialog, then honors Firefox's Downloads setting for destination selection; Chromium uses the native filesystem picker
 - original-resolution tiled export with progress reporting
 - Current Version link
 
