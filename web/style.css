@@ -522,3 +522,28 @@ body.processing .viewer-dropzone::after {
   touch-action: none;
   filter: drop-shadow(0 0 14px rgba(57,215,255,.14));
 }
+
+
+body.exporting .viewer-dropzone::after {
+  content: "FULL-RES EXPORT";
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  padding: 7px 10px;
+  border: 1px solid rgba(139,125,255,.5);
+  border-radius: 8px;
+  background: rgba(9,13,20,.92);
+  color: #b7adff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  pointer-events: none;
+}
+
+.credit-line {
+  margin: -2px 18px 16px 4px;
+  color: #65758f;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+}
