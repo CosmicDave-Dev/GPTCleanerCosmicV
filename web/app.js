@@ -122,6 +122,78 @@ function darkroomSettingsFromControls() {
   };
 }
 
+function drawHueWheel() {
+  const canvas = $("hueWheel");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const cx = width / 2;
+  const cy = height / 2;
+  const outer = Math.min(width, height) * 0.46;
+  const inner = outer * 0.58;
+
+  ctx.clearRect(0, 0, width, height);
+
+  for (let degree = 0; degree < 360; degree += 2) {
+    const start = (degree - 90) * Math.PI / 180;
+    const end = (degree + 2 - 90) * Math.PI / 180;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, outer, start, end);
+    ctx.arc(cx, cy, inner, end, start, true);
+    ctx.closePath();
+    ctx.fillStyle = `hsl(${degree} 100% 55%)`;
+    ctx.fill();
+  }
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, inner - 2, 0, Math.PI * 2);
+  ctx.fillStyle = "#0b111b";
+  ctx.fill();
+  ctx.strokeStyle = "#263248";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const hue = Number($("hueRange").value);
+  const angle = ((hue + 180) / 360) * Math.PI * 2 - Math.PI / 2;
+  const radius = (outer + inner) / 2;
+  const px = cx + Math.cos(angle) * radius;
+  const py = cy + Math.sin(angle) * radius;
+
+  ctx.beginPath();
+  ctx.arc(px, py, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.strokeStyle = "#061018";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = "#8fa0bd";
+  ctx.font = "12px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`${Math.round(hue)}°`, cx, cy);
+}
+
+function setHueFromPointer(event) {
+  const canvas = $("hueWheel");
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left - rect.width / 2;
+  const y = event.clientY - rect.top - rect.height / 2;
+  let angle = Math.atan2(y, x) + Math.PI / 2;
+
+  while (angle < 0) angle += Math.PI * 2;
+  while (angle >= Math.PI * 2) angle -= Math.PI * 2;
+
+  const hue = Math.round((angle / (Math.PI * 2)) * 360 - 180);
+  $("hueRange").value = String(hue);
+  $("hueValue").value = String(hue);
+  drawHueWheel();
+  scheduleDarkroom(40);
+}
+
 function displayCleanupValue(key, value) {
   if (key === "crunchRadius") return Number(value).toFixed(2);
   return String(Math.round(value));
@@ -422,9 +494,19 @@ $("resetCleanupBtn").addEventListener("click", () => {
 
 for (const [rangeId, numberId] of darkroomPairs) {
   bindRangeNumber(rangeId, numberId, () => {
+    if (rangeId === "hueRange") drawHueWheel();
     scheduleDarkroom();
   });
 }
+
+const hueWheel = $("hueWheel");
+hueWheel.addEventListener("pointerdown", (event) => {
+  hueWheel.setPointerCapture?.(event.pointerId);
+  setHueFromPointer(event);
+});
+hueWheel.addEventListener("pointermove", (event) => {
+  if (event.buttons & 1) setHueFromPointer(event);
+});
 
 for (const id of [
   "grayscaleCheck",
@@ -457,6 +539,7 @@ $("resetColorBtn").addEventListener("click", () => {
     number.value = String(value);
   }
 
+  drawHueWheel();
   scheduleDarkroom(0);
   setStatus(statusText, "Color controls reset.");
 });
@@ -484,8 +567,9 @@ $("resetEffectsBtn").addEventListener("click", () => {
 });
 
 function updateTransformStatus() {
+  const labels = [0, 90, 180, -90];
   $("rotationStatus").textContent =
-    `Rotation: ${transformState.turns * 90}°`;
+    `Rotation: ${labels[transformState.turns]}°`;
 }
 
 function applyTransformState() {
@@ -631,6 +715,7 @@ dropZone.addEventListener("drop", async (event) => {
 applyCleanupSettings(PRESETS.Balanced);
 markPreset("Balanced");
 updateTransformStatus();
+drawHueWheel();
 
 setStatus(
   statusText,
