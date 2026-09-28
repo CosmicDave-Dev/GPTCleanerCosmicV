@@ -39,6 +39,17 @@ export const PRESETS = {
 
 const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
 
+const yieldToBrowser = () =>
+  new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+async function forChunks(length, callback, chunkSize = 131072) {
+  for (let start = 0; start < length; start += chunkSize) {
+    const end = Math.min(length, start + chunkSize);
+    callback(start, end);
+    await yieldToBrowser();
+  }
+}
+
 export async function waitForOpenCV(timeoutMs = 30000) {
   const started = performance.now();
 
@@ -75,7 +86,7 @@ function percentile(values, percent) {
   return sorted[index];
 }
 
-function robustUnit(cv, mat, lo, hi) {
+async function robustUnit(cv, mat, lo, hi) {
   const input = mat.data32F;
   const maxSamples = 50000;
   const step = Math.max(1, Math.floor(input.length / maxSamples));
@@ -93,18 +104,26 @@ function robustUnit(cv, mat, lo, hi) {
   const out = new cv.Mat(mat.rows, mat.cols, cv.CV_32F);
   const dst = out.data32F;
 
-  for (let i = 0; i < input.length; i++) {
-    dst[i] = clamp((input[i] - low) / span, 0, 1);
-  }
+  await forChunks(input.length, (start, end) => {
+    for (let i = start; i < end; i++) {
+      dst[i] = clamp((input[i] - low) / span, 0, 1);
+    }
+  });
 
   return out;
 }
 
-function absFloatMat(cv, mat) {
+async function absFloatMat(cv, mat) {
   const out = new cv.Mat(mat.rows, mat.cols, cv.CV_32F);
   const src = mat.data32F;
   const dst = out.data32F;
-  for (let i = 0; i < src.length; i++) dst[i] = Math.abs(src[i]);
+
+  await forChunks(src.length, (start, end) => {
+    for (let i = start; i < end; i++) {
+      dst[i] = Math.abs(src[i]);
+    }
+  });
+
   return out;
 }
 
@@ -216,12 +235,12 @@ export async function processImage(imageBitmap, settings, onProgress = () => {})
 
     const magnitude = keep(new cv.Mat());
     cv.magnitude(gx, gy, magnitude);
-    const grad = keep(robustUnit(cv, magnitude, 5.0, 99.5));
+    const grad = keep(await robustUnit(cv, magnitude, 5.0, 99.5));
 
     const lap = keep(new cv.Mat());
     cv.Laplacian(lf, lap, cv.CV_32F, 3);
-    const absLap = keep(absFloatMat(cv, lap));
-    const highFreq = keep(robustUnit(cv, absLap, 10.0, 97.0));
+    const absLap = keep(await absFloatMat(cv, lap));
+    const highFreq = keep(await robustUnit(cv, absLap, 10.0, 97.0));
 
     const gx2 = keep(new cv.Mat());
     const gy2 = keep(new cv.Mat());
@@ -255,23 +274,25 @@ export async function processImage(imageBitmap, settings, onProgress = () => {})
 
     const threshold = 0.52 - 0.28 * cfg.fragmentSensitivity;
 
-    for (let i = 0; i < gArr.length; i++) {
-      const dx = xx[i] - yy[i];
-      const numerator = Math.sqrt(dx * dx + 4 * xy[i] * xy[i]);
-      cohArr[i] = numerator / (xx[i] + yy[i] + 1e-6);
+    await forChunks(gArr.length, (start, end) => {
+      for (let i = start; i < end; i++) {
+        const dx = xx[i] - yy[i];
+        const numerator = Math.sqrt(dx * dx + 4 * xy[i] * xy[i]);
+        cohArr[i] = numerator / (xx[i] + yy[i] + 1e-6);
 
-      const medium =
-        smoothstepScalar(gArr[i], 0.06, 0.38) *
-        (1 - smoothstepScalar(gArr[i], 0.70, 0.97));
+        const medium =
+          smoothstepScalar(gArr[i], 0.06, 0.38) *
+          (1 - smoothstepScalar(gArr[i], 0.70, 0.97));
 
-      const micro =
-        smoothstepScalar(hArr[i], 0.06, 0.50) *
-        (1 - 0.20 * smoothstepScalar(hArr[i], 0.85, 1.0));
+        const micro =
+          smoothstepScalar(hArr[i], 0.06, 0.50) *
+          (1 - 0.20 * smoothstepScalar(hArr[i], 0.85, 1.0));
 
-      medArr[i] = medium;
-      microArr[i] = micro;
-      seedArr[i] = micro > threshold && medium > 0.12 ? 1 : 0;
-    }
+        medArr[i] = medium;
+        microArr[i] = micro;
+        seedArr[i] = micro > threshold && medium > 0.12 ? 1 : 0;
+      }
+    });
 
     const densityRaw = keep(new cv.Mat());
     cv.blur(
@@ -287,35 +308,37 @@ export async function processImage(imageBitmap, settings, onProgress = () => {})
     const maskArr = mask.data32F;
     const incoherentPower = 0.55 + 1.65 * (1 - cfg.fragmentSensitivity);
 
-    for (let i = 0; i < maskArr.length; i++) {
-      const densityScore = smoothstepScalar(density[i], 0.04, 0.42);
-      const incoherent = Math.pow(
-        clamp(1 - cohArr[i], 0, 1),
-        incoherentPower
-      );
-
-      let value =
-        (0.64 * microArr[i] * medArr[i] +
-          0.36 * densityScore * medArr[i]) *
-        (0.40 + 0.60 * incoherent);
-
-      value *= clamp(
-        1 - cfg.structureProtection * 0.60 * cohArr[i],
-        0,
-        1
-      );
-
-      value *= 1 - smoothstepScalar(gArr[i], 0.78, 0.98);
-
-      const flatTexture =
-        hArr[i] *
-        Math.pow(
-          1 - smoothstepScalar(gArr[i], 0.35, 0.75),
-          1.4
+    await forChunks(maskArr.length, (start, end) => {
+      for (let i = start; i < end; i++) {
+        const densityScore = smoothstepScalar(density[i], 0.04, 0.42);
+        const incoherent = Math.pow(
+          clamp(1 - cohArr[i], 0, 1),
+          incoherentPower
         );
 
-      maskArr[i] = Math.max(value, cfg.baseCleanup * flatTexture);
-    }
+        let value =
+          (0.64 * microArr[i] * medArr[i] +
+            0.36 * densityScore * medArr[i]) *
+          (0.40 + 0.60 * incoherent);
+
+        value *= clamp(
+          1 - cfg.structureProtection * 0.60 * cohArr[i],
+          0,
+          1
+        );
+
+        value *= 1 - smoothstepScalar(gArr[i], 0.78, 0.98);
+
+        const flatTexture =
+          hArr[i] *
+          Math.pow(
+            1 - smoothstepScalar(gArr[i], 0.35, 0.75),
+            1.4
+          );
+
+        maskArr[i] = Math.max(value, cfg.baseCleanup * flatTexture);
+      }
+    });
 
     const maskSmooth = keep(new cv.Mat());
     cv.GaussianBlur(
@@ -346,10 +369,12 @@ export async function processImage(imageBitmap, settings, onProgress = () => {})
     const smArr = maskSmooth.data32F;
     const cleanArr = cleaned.data32F;
 
-    for (let i = 0; i < cleanArr.length; i++) {
-      const amount = clamp(cfg.edgeCrunch * smArr[i] * 1.60, 0, 0.92);
-      cleanArr[i] = lfArr[i] * (1 - amount) + candArr[i] * amount;
-    }
+    await forChunks(cleanArr.length, (start, end) => {
+      for (let i = start; i < end; i++) {
+        const amount = clamp(cfg.edgeCrunch * smArr[i] * 1.60, 0, 0.92);
+        cleanArr[i] = lfArr[i] * (1 - amount) + candArr[i] * amount;
+      }
+    });
 
     onProgress("Cleaning specks...");
 
@@ -369,21 +394,23 @@ export async function processImage(imageBitmap, settings, onProgress = () => {})
       cfg.speckThreshold * 2
     );
 
-    for (let i = 0; i < cleanArr.length; i++) {
-      const bright = Math.max(lum8[i] - open8[i], 0);
-      const dark = Math.max(close8[i] - lum8[i], 0);
-      const hat = Math.max(bright, dark);
-      let hatMask = smoothstepScalar(
-        hat,
-        cfg.speckThreshold,
-        speckEnd
-      );
-      hatMask *= smArr[i] * cfg.edgeCrunch * 0.22;
-      const morphTarget = dark > bright ? close8[i] : open8[i];
-      cleanArr[i] =
-        cleanArr[i] * (1 - hatMask) + morphTarget * hatMask;
-      cleanArr[i] = clamp(cleanArr[i], 0, 255);
-    }
+    await forChunks(cleanArr.length, (start, end) => {
+      for (let i = start; i < end; i++) {
+        const bright = Math.max(lum8[i] - open8[i], 0);
+        const dark = Math.max(close8[i] - lum8[i], 0);
+        const hat = Math.max(bright, dark);
+        let hatMask = smoothstepScalar(
+          hat,
+          cfg.speckThreshold,
+          speckEnd
+        );
+        hatMask *= smArr[i] * cfg.edgeCrunch * 0.22;
+        const morphTarget = dark > bright ? close8[i] : open8[i];
+        cleanArr[i] =
+          cleanArr[i] * (1 - hatMask) + morphTarget * hatMask;
+        cleanArr[i] = clamp(cleanArr[i], 0, 255);
+      }
+    });
 
     const cleanedLum = keep(new cv.Mat());
     cleaned.convertTo(cleanedLum, cv.CV_8U);
