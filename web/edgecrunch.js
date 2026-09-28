@@ -140,6 +140,15 @@ export async function processImage(
   const currentWorker = getWorker();
   const id = ++nextRequestId;
 
+  for (const [requestId, request] of requests.entries()) {
+    if (requestId < id) {
+      const error = new Error("Superseded by newer EdgeCrunch settings.");
+      error.name = "AbortError";
+      request.reject(error);
+      requests.delete(requestId);
+    }
+  }
+
   onProgress("Sending image to background EdgeCrunch worker...");
 
   const { width, height, pixels } = bitmapToPixels(imageBitmap);
