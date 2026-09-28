@@ -1,0 +1,46 @@
+name: Deploy CosmicV Web to GitHub Pages
+
+on:
+  workflow_run:
+    workflows:
+      - "Smoke Test CosmicV Web Browsers"
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "cosmicv-pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload CosmicV Web
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./web
+
+      - name: Deploy CosmicV Web
+        id: deployment
+        uses: actions/deploy-pages@v4
