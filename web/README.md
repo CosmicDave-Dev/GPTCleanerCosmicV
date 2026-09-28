@@ -2,32 +2,40 @@
 
 Browser-side companion to **CosmicV EdgeCrunch Darkroom V1.4**.
 
-This web edition is intentionally separate from the shipped Windows EXE. The desktop build remains untouched.
+The shipped Windows EXE remains a separate first-class build. The web edition is its browser sidekick and does not replace it.
 
-## Milestone A
+## Web Preview 0.2
 
 Implemented:
 
 - cybercore night UI
 - Open Image
-- Explorer/browser drag-and-drop
+- browser drag-and-drop
 - before/after split viewer
 - draggable cyan divider
 - cursor-centered mouse-wheel zoom
-- image pan
+- pan while zoomed
 - Fit and 1:1 modes
-- Save PNG
-- Save JPEG
-- Save WebP
+- Conservative / Balanced / Strong / Aggressive presets using the desktop V1.4 values
+- advanced EdgeCrunch controls
+- browser-side fragmented micro-edge detector
+- structure protection
+- base cleanup
+- speck cleanup
+- Target Mask diagnostic view
+- PNG / JPEG / WebP export
 - Current Version link
 
-The Before and After images are intentionally identical in Milestone A. The next milestone ports the EdgeCrunch processing pipeline into `edgecrunch.js`.
+The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server.
+
+OpenCV.js is currently loaded from the official OpenCV documentation CDN. The image itself remains local to the browser. A later pass can vendor OpenCV.js for a fully self-contained/offline web build.
 
 ## Local test
 
-From the repository root:
+From your local repository:
 
 ```bat
+git pull
 cd web
 python -m http.server 8000
 ```
@@ -38,4 +46,8 @@ Then open:
 http://localhost:8000/
 ```
 
-All processing will remain client-side. No backend is required.
+If port 8000 is already occupied, stop the previous server with Ctrl+C first.
+
+## Next
+
+After the EdgeCrunch browser port is validated against the desktop app, the next major parity pass is the Darkroom layer: brightness, contrast, saturation, warmth, exposure, gamma, hue, adjustment mix, effects, rotate/flip, and richer export presets.
