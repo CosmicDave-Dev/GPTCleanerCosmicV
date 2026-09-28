@@ -78,6 +78,10 @@ The repository also contains **CosmicV EdgeCrunch Darkroom Web**, a client-side 
 
 The web edition is separate from the Windows V1.4 executable and does not replace it. See [`web/README.md`](web/README.md) for local testing and current web-preview status.
 
+## Development credit
+
+CosmicV EdgeCrunch Darkroom was created at **Cosmic Dave Studios** with development assistance from **ChatGPT by OpenAI**.
+
 ## Privacy
 
 CosmicV EdgeCrunch Darkroom processes images locally. It does not require an account or cloud upload service to clean or edit images.
