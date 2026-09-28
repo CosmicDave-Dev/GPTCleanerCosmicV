@@ -1,0 +1,121 @@
+import { chromium, firefox } from "playwright";
+import assert from "node:assert/strict";
+
+const browserName = process.env.BROWSER || "chromium";
+const browserType = { chromium, firefox }[browserName];
+
+if (!browserType) {
+  throw new Error(`Unsupported BROWSER=${browserName}`);
+}
+
+const browser = await browserType.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
+
+const pageErrors = [];
+page.on("pageerror", (error) => {
+  pageErrors.push(error.message || String(error));
+});
+
+try {
+  await page.goto("http://127.0.0.1:8000/", {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
+  });
+
+  await page.waitForSelector(".brand-title");
+  const subtitle = await page.locator(".brand-subtitle").textContent();
+  assert.match(subtitle || "", /Web Preview 0\.4\.1/);
+
+  const dividerWidth = await page.locator("#divider").evaluate(
+    (element) => parseFloat(getComputedStyle(element).width)
+  );
+  assert.ok(dividerWidth >= 12, `divider hitbox too narrow: ${dividerWidth}px`);
+
+  await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 96;
+    canvas.height = 80;
+    const ctx = canvas.getContext("2d");
+
+    const gradient = ctx.createLinearGradient(0, 0, 96, 80);
+    gradient.addColorStop(0, "#101828");
+    gradient.addColorStop(0.45, "#d97706");
+    gradient.addColorStop(1, "#22d3ee");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 96, 80);
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1;
+    for (let x = 4; x < 96; x += 7) {
+      ctx.beginPath();
+      ctx.moveTo(x, 4);
+      ctx.lineTo(Math.min(95, x + 16), 76);
+      ctx.stroke();
+    }
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/png")
+    );
+
+    const file = new File([blob], "cosmicv-smoke.png", {
+      type: "image/png",
+    });
+
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+
+    const input = document.querySelector("#fileInput");
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  await page.waitForFunction(
+    () => document.querySelector("#statusText")?.textContent?.includes("EdgeCrunch ready"),
+    null,
+    { timeout: 120000 }
+  );
+
+  await page.locator('[data-tab="color"]').click();
+  await page.locator("#brightnessRange").evaluate((element) => {
+    element.value = "18";
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await page.waitForTimeout(250);
+
+  await page.locator('[data-tab="transform"]').click();
+  await page.locator("#rotateRightBtn").click();
+  await page.waitForFunction(
+    () => document.querySelector("#rotationStatus")?.textContent?.includes("90°"),
+    null,
+    { timeout: 5000 }
+  );
+
+  await page.locator("#resetTransformBtn").click();
+  await page.locator('[data-tab="quick"]').click();
+
+  const downloadPromise = page.waitForEvent("download", {
+    timeout: 120000,
+  });
+  await page.locator("#savePngBtn").click();
+  const download = await downloadPromise;
+
+  assert.match(download.suggestedFilename(), /cosmicv.*\.png$/i);
+
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector("#statusText")
+        ?.textContent?.includes("Saved full-resolution PNG: 96×80"),
+    null,
+    { timeout: 120000 }
+  );
+
+  assert.deepEqual(pageErrors, []);
+
+  console.log(
+    `CosmicV Web smoke test passed in ${browserName}: EdgeCrunch + tabs + full-res export.`
+  );
+} finally {
+  await browser.close();
+}
