@@ -1,13 +1,11 @@
 // CosmicV EdgeCrunch Darkroom Web Worker
-// Heavy OpenCV.js work lives here so Firefox's UI thread stays responsive.
+// Pure JavaScript / typed-array EdgeCrunch implementation.
+// No OpenCV.js, no external runtime, no network dependency.
 
-const OPENCV_URL = "https://docs.opencv.org/4.x/opencv.js";
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-let cvPromise = null;
 let pendingRequest = null;
 let pumping = false;
-
-const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
 
 class CancelledError extends Error {
   constructor() {
@@ -29,593 +27,539 @@ async function yieldWorker(id) {
   if (isStale(id)) throw new CancelledError();
 }
 
-async function forChunks(id, length, callback, chunkSize = 65536) {
-  for (let start = 0; start < length; start += chunkSize) {
-    const end = Math.min(length, start + chunkSize);
-    callback(start, end);
+async function forRows(id, height, callback, rowsPerChunk = 24) {
+  for (let y0 = 0; y0 < height; y0 += rowsPerChunk) {
+    const y1 = Math.min(height, y0 + rowsPerChunk);
+    callback(y0, y1);
     await yieldWorker(id);
   }
 }
 
-async function ensureOpenCV(id) {
-  if (!cvPromise) {
-    cvPromise = (async () => {
-      postProgress(id, "Loading EdgeCrunch engine in background...");
-      importScripts(OPENCV_URL);
-
-      let candidate =
-        self.cv ||
-        (typeof cv !== "undefined" ? cv : null);
-
-      if (candidate && typeof candidate.then === "function") {
-        candidate = await candidate;
-      }
-
-      const started = Date.now();
-      while (
-        (!candidate?.Mat ||
-          !candidate?.cvtColor ||
-          !candidate?.Sobel) &&
-        Date.now() - started < 30000
-      ) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        candidate =
-          self.cv ||
-          (typeof cv !== "undefined" ? cv : null);
-
-        if (candidate && typeof candidate.then === "function") {
-          candidate = await candidate;
-        }
-      }
-
-      if (!candidate?.Mat) {
-        throw new Error("OpenCV.js did not initialize in the worker.");
-      }
-
-      self.cv = candidate;
-      return candidate;
-    })().catch((error) => {
-      cvPromise = null;
-      throw error;
-    });
-  }
-
-  return cvPromise;
+function smoothstep(x, a, b) {
+  const t = clamp((x - a) / Math.max(1e-6, b - a), 0, 1);
+  return t * t * (3 - 2 * t);
 }
 
-function percentile(values, percent) {
+function percentile(values, p) {
   if (!values.length) return 0;
   values.sort((a, b) => a - b);
-
-  const index = clamp(
-    Math.round((percent / 100) * (values.length - 1)),
+  const i = clamp(
+    Math.round((p / 100) * (values.length - 1)),
     0,
     values.length - 1
   );
-
-  return values[index];
+  return values[i];
 }
 
-async function robustUnit(id, cv, mat, lo, hi) {
-  const input = mat.data32F;
-  const maxSamples = 20000;
-  const step = Math.max(1, Math.floor(input.length / maxSamples));
+function robustUnit(input, lo, hi) {
   const sample = [];
-
+  const step = Math.max(1, Math.floor(input.length / 20000));
   for (let i = 0; i < input.length; i += step) {
-    const value = input[i];
-    if (Number.isFinite(value)) sample.push(value);
+    const v = input[i];
+    if (Number.isFinite(v)) sample.push(v);
   }
 
   const low = percentile(sample, lo);
   const high = percentile(sample, hi);
   const span = Math.max(1e-6, high - low);
 
-  const out = new cv.Mat(mat.rows, mat.cols, cv.CV_32F);
-  const dst = out.data32F;
+  const out = new Float32Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    out[i] = clamp((input[i] - low) / span, 0, 1);
+  }
+  return out;
+}
 
-  await forChunks(id, input.length, (start, end) => {
-    for (let i = start; i < end; i++) {
-      dst[i] = clamp((input[i] - low) / span, 0, 1);
+function gaussianKernel1D(sigma) {
+  sigma = Math.max(0.1, sigma);
+  const radius = Math.max(1, Math.ceil(sigma * 3));
+  const size = radius * 2 + 1;
+  const kernel = new Float32Array(size);
+  let sum = 0;
+
+  for (let i = -radius; i <= radius; i++) {
+    const v = Math.exp(-(i * i) / (2 * sigma * sigma));
+    kernel[i + radius] = v;
+    sum += v;
+  }
+
+  for (let i = 0; i < size; i++) kernel[i] /= sum;
+  return { kernel, radius };
+}
+
+async function gaussianBlur(id, input, width, height, sigma) {
+  const { kernel, radius } = gaussianKernel1D(sigma);
+  const temp = new Float32Array(input.length);
+  const out = new Float32Array(input.length);
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      const row = y * width;
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) {
+          const xx = clamp(x + k, 0, width - 1);
+          sum += input[row + xx] * kernel[k + radius];
+        }
+        temp[row + x] = sum;
+      }
+    }
+  });
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      const row = y * width;
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) {
+          const yy = clamp(y + k, 0, height - 1);
+          sum += temp[yy * width + x] * kernel[k + radius];
+        }
+        out[row + x] = sum;
+      }
     }
   });
 
   return out;
 }
 
-async function absFloatMat(id, cv, mat) {
-  const out = new cv.Mat(mat.rows, mat.cols, cv.CV_32F);
-  const src = mat.data32F;
-  const dst = out.data32F;
+async function boxBlur(id, input, width, height, radius) {
+  const temp = new Float32Array(input.length);
+  const out = new Float32Array(input.length);
+  const size = radius * 2 + 1;
 
-  await forChunks(id, src.length, (start, end) => {
-    for (let i = start; i < end; i++) {
-      dst[i] = Math.abs(src[i]);
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      const row = y * width;
+      let sum = 0;
+
+      for (let k = -radius; k <= radius; k++) {
+        sum += input[row + clamp(k, 0, width - 1)];
+      }
+
+      for (let x = 0; x < width; x++) {
+        temp[row + x] = sum / size;
+        const removeX = clamp(x - radius, 0, width - 1);
+        const addX = clamp(x + radius + 1, 0, width - 1);
+        sum += input[row + addX] - input[row + removeX];
+      }
+    }
+  });
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) {
+          const yy = clamp(y + k, 0, height - 1);
+          sum += temp[yy * width + x];
+        }
+        out[y * width + x] = sum / size;
+      }
     }
   });
 
   return out;
 }
 
-function smoothstepScalar(x, a, b) {
-  const t = clamp((x - a) / Math.max(1e-6, b - a), 0, 1);
-  return t * t * (3 - 2 * t);
+async function sobelAndLaplacian(id, lum, width, height) {
+  const gx = new Float32Array(lum.length);
+  const gy = new Float32Array(lum.length);
+  const mag = new Float32Array(lum.length);
+  const lap = new Float32Array(lum.length);
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      const ym = Math.max(0, y - 1);
+      const yp = Math.min(height - 1, y + 1);
+
+      for (let x = 0; x < width; x++) {
+        const xm = Math.max(0, x - 1);
+        const xp = Math.min(width - 1, x + 1);
+
+        const a = lum[ym * width + xm];
+        const b = lum[ym * width + x];
+        const c = lum[ym * width + xp];
+        const d = lum[y * width + xm];
+        const e = lum[y * width + x];
+        const f = lum[y * width + xp];
+        const g = lum[yp * width + xm];
+        const h = lum[yp * width + x];
+        const i = lum[yp * width + xp];
+
+        const sx = -a + c - 2 * d + 2 * f - g + i;
+        const sy = -a - 2 * b - c + g + 2 * h + i;
+
+        const idx = y * width + x;
+        gx[idx] = sx;
+        gy[idx] = sy;
+        mag[idx] = Math.hypot(sx, sy);
+        lap[idx] = Math.abs(a + b + c + d - 8 * e + f + g + h + i);
+      }
+    }
+  });
+
+  return { gx, gy, mag, lap };
 }
 
-function gaussianKernelForSigma(sigma) {
-  const radius = Math.max(1, Math.ceil(Math.max(0.1, sigma) * 3));
-  return radius * 2 + 1;
+async function minMax3x3(id, input, width, height) {
+  const openedBase = new Float32Array(input.length);
+  const closedBase = new Float32Array(input.length);
+  const opened = new Float32Array(input.length);
+  const closed = new Float32Array(input.length);
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      const ym = Math.max(0, y - 1);
+      const yp = Math.min(height - 1, y + 1);
+
+      for (let x = 0; x < width; x++) {
+        const xm = Math.max(0, x - 1);
+        const xp = Math.min(width - 1, x + 1);
+
+        let minV = Infinity;
+        let maxV = -Infinity;
+
+        for (let yy = ym; yy <= yp; yy++) {
+          const row = yy * width;
+          for (let xx = xm; xx <= xp; xx++) {
+            const v = input[row + xx];
+            minV = Math.min(minV, v);
+            maxV = Math.max(maxV, v);
+          }
+        }
+
+        const idx = y * width + x;
+        openedBase[idx] = minV;
+        closedBase[idx] = maxV;
+      }
+    }
+  });
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      const ym = Math.max(0, y - 1);
+      const yp = Math.min(height - 1, y + 1);
+
+      for (let x = 0; x < width; x++) {
+        const xm = Math.max(0, x - 1);
+        const xp = Math.min(width - 1, x + 1);
+
+        let maxOfMin = -Infinity;
+        let minOfMax = Infinity;
+
+        for (let yy = ym; yy <= yp; yy++) {
+          const row = yy * width;
+          for (let xx = xm; xx <= xp; xx++) {
+            maxOfMin = Math.max(maxOfMin, openedBase[row + xx]);
+            minOfMax = Math.min(minOfMax, closedBase[row + xx]);
+          }
+        }
+
+        const idx = y * width + x;
+        opened[idx] = maxOfMin;
+        closed[idx] = minOfMax;
+      }
+    }
+  });
+
+  return { opened, closed };
 }
 
 async function processRequest(request) {
   const id = request.id;
-  const cv = await ensureOpenCV(id);
+  const width = request.width;
+  const height = request.height;
+  const pixels = new Uint8ClampedArray(request.pixels);
+  const count = width * height;
 
-  if (isStale(id)) throw new CancelledError();
-
-  const settings = request.settings || {};
   const cfg = {
-    edgeCrunch: clamp(settings.edgeCrunch ?? 0.55, 0, 1),
+    edgeCrunch: clamp(request.settings?.edgeCrunch ?? 0.55, 0, 1),
     fragmentSensitivity: clamp(
-      settings.fragmentSensitivity ?? 0.65,
+      request.settings?.fragmentSensitivity ?? 0.65,
       0,
       1
     ),
     structureProtection: clamp(
-      settings.structureProtection ?? 0.90,
+      request.settings?.structureProtection ?? 0.90,
       0,
       1
     ),
-    crunchRadius: clamp(settings.crunchRadius ?? 0.80, 0.35, 2.50),
-    baseCleanup: clamp(settings.baseCleanup ?? 0.15, 0, 1),
+    crunchRadius: clamp(
+      request.settings?.crunchRadius ?? 0.80,
+      0.35,
+      2.50
+    ),
+    baseCleanup: clamp(request.settings?.baseCleanup ?? 0.15, 0, 1),
     speckThreshold: Math.max(
       1,
-      Math.round(settings.speckThreshold ?? 10)
+      Math.round(request.settings?.speckThreshold ?? 10)
     ),
   };
 
-  const owned = [];
-  const keep = (mat) => {
-    owned.push(mat);
-    return mat;
-  };
+  postProgress(id, "Background EdgeCrunch worker ready.");
 
-  try {
-    postProgress(id, "Preparing browser preview...");
+  const lum = new Float32Array(count);
+  const red = new Float32Array(count);
+  const green = new Float32Array(count);
+  const blue = new Float32Array(count);
 
-    const rgba = keep(
-      new cv.Mat(
-        request.height,
-        request.width,
-        cv.CV_8UC4
-      )
-    );
-    rgba.data.set(new Uint8Array(request.pixels));
+  postProgress(id, "Reading image texture...");
 
-    const rgb = keep(new cv.Mat());
-    cv.cvtColor(rgba, rgb, cv.COLOR_RGBA2RGB);
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = y * width + x;
+        const i = p * 4;
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
 
-    const lab = keep(new cv.Mat());
-    cv.cvtColor(rgb, lab, cv.COLOR_RGB2Lab);
-
-    const channels = new cv.MatVector();
-    cv.split(lab, channels);
-
-    const lum = keep(channels.get(0));
-    const channelA = keep(channels.get(1));
-    const channelB = keep(channels.get(2));
-    channels.delete();
-
-    const lf = keep(new cv.Mat());
-    lum.convertTo(lf, cv.CV_32F);
-
-    postProgress(id, "Finding fragmented micro-edges...");
-
-    const gx = keep(new cv.Mat());
-    const gy = keep(new cv.Mat());
-    cv.Sobel(lf, gx, cv.CV_32F, 1, 0, 3);
-    cv.Sobel(lf, gy, cv.CV_32F, 0, 1, 3);
-
-    const magnitude = keep(new cv.Mat());
-    cv.magnitude(gx, gy, magnitude);
-    const grad = keep(
-      await robustUnit(id, cv, magnitude, 5.0, 99.5)
-    );
-
-    const lap = keep(new cv.Mat());
-    cv.Laplacian(lf, lap, cv.CV_32F, 3);
-    const absLap = keep(await absFloatMat(id, cv, lap));
-    const highFreq = keep(
-      await robustUnit(id, cv, absLap, 10.0, 97.0)
-    );
-
-    const gx2 = keep(new cv.Mat());
-    const gy2 = keep(new cv.Mat());
-    const gxgy = keep(new cv.Mat());
-
-    cv.multiply(gx, gx, gx2);
-    cv.multiply(gy, gy, gy2);
-    cv.multiply(gx, gy, gxgy);
-
-    const jxx = keep(new cv.Mat());
-    const jyy = keep(new cv.Mat());
-    const jxy = keep(new cv.Mat());
-
-    const tensorKernel = new cv.Size(11, 11);
-
-    cv.GaussianBlur(
-      gx2,
-      jxx,
-      tensorKernel,
-      1.5,
-      1.5,
-      cv.BORDER_DEFAULT
-    );
-    cv.GaussianBlur(
-      gy2,
-      jyy,
-      tensorKernel,
-      1.5,
-      1.5,
-      cv.BORDER_DEFAULT
-    );
-    cv.GaussianBlur(
-      gxgy,
-      jxy,
-      tensorKernel,
-      1.5,
-      1.5,
-      cv.BORDER_DEFAULT
-    );
-
-    await yieldWorker(id);
-
-    const coherence = keep(
-      new cv.Mat(lf.rows, lf.cols, cv.CV_32F)
-    );
-    const mediumEdge = keep(
-      new cv.Mat(lf.rows, lf.cols, cv.CV_32F)
-    );
-    const microEdge = keep(
-      new cv.Mat(lf.rows, lf.cols, cv.CV_32F)
-    );
-    const seeds = keep(
-      new cv.Mat(lf.rows, lf.cols, cv.CV_32F)
-    );
-
-    const gArr = grad.data32F;
-    const hArr = highFreq.data32F;
-    const xx = jxx.data32F;
-    const yy = jyy.data32F;
-    const xy = jxy.data32F;
-    const cohArr = coherence.data32F;
-    const medArr = mediumEdge.data32F;
-    const microArr = microEdge.data32F;
-    const seedArr = seeds.data32F;
-
-    const threshold =
-      0.52 - 0.28 * cfg.fragmentSensitivity;
-
-    await forChunks(id, gArr.length, (start, end) => {
-      for (let i = start; i < end; i++) {
-        const dx = xx[i] - yy[i];
-        const numerator = Math.sqrt(
-          dx * dx + 4 * xy[i] * xy[i]
-        );
-
-        cohArr[i] =
-          numerator / (xx[i] + yy[i] + 1e-6);
-
-        const medium =
-          smoothstepScalar(gArr[i], 0.06, 0.38) *
-          (1 - smoothstepScalar(gArr[i], 0.70, 0.97));
-
-        const micro =
-          smoothstepScalar(hArr[i], 0.06, 0.50) *
-          (1 -
-            0.20 *
-              smoothstepScalar(hArr[i], 0.85, 1.0));
-
-        medArr[i] = medium;
-        microArr[i] = micro;
-        seedArr[i] =
-          micro > threshold && medium > 0.12 ? 1 : 0;
+        red[p] = r;
+        green[p] = g;
+        blue[p] = b;
+        lum[p] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
       }
-    });
+    }
+  });
 
-    const densityRaw = keep(new cv.Mat());
+  postProgress(id, "Finding fragmented micro-edges...");
 
-    cv.blur(
-      seeds,
-      densityRaw,
-      new cv.Size(7, 7),
-      new cv.Point(-1, -1),
-      cv.BORDER_DEFAULT
-    );
+  const { gx, gy, mag, lap } = await sobelAndLaplacian(
+    id,
+    lum,
+    width,
+    height
+  );
 
-    const mask = keep(
-      new cv.Mat(lf.rows, lf.cols, cv.CV_32F)
-    );
+  const grad = robustUnit(mag, 5, 99.5);
+  const highFreq = robustUnit(lap, 10, 97);
 
-    const density = densityRaw.data32F;
-    const maskArr = mask.data32F;
+  const gx2 = new Float32Array(count);
+  const gy2 = new Float32Array(count);
+  const gxgy = new Float32Array(count);
 
-    const incoherentPower =
-      0.55 +
-      1.65 * (1 - cfg.fragmentSensitivity);
+  for (let i = 0; i < count; i++) {
+    gx2[i] = gx[i] * gx[i];
+    gy2[i] = gy[i] * gy[i];
+    gxgy[i] = gx[i] * gy[i];
+  }
 
-    await forChunks(id, maskArr.length, (start, end) => {
-      for (let i = start; i < end; i++) {
-        const densityScore = smoothstepScalar(
-          density[i],
-          0.04,
-          0.42
-        );
+  const [jxx, jyy, jxy] = await Promise.all([
+    gaussianBlur(id, gx2, width, height, 1.5),
+    gaussianBlur(id, gy2, width, height, 1.5),
+    gaussianBlur(id, gxgy, width, height, 1.5),
+  ]);
 
+  const coherence = new Float32Array(count);
+  const medium = new Float32Array(count);
+  const micro = new Float32Array(count);
+  const seeds = new Float32Array(count);
+  const threshold = 0.52 - 0.28 * cfg.fragmentSensitivity;
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = y * width + x;
+        const dx = jxx[p] - jyy[p];
+
+        coherence[p] =
+          Math.sqrt(dx * dx + 4 * jxy[p] * jxy[p]) /
+          (jxx[p] + jyy[p] + 1e-6);
+
+        medium[p] =
+          smoothstep(grad[p], 0.06, 0.38) *
+          (1 - smoothstep(grad[p], 0.70, 0.97));
+
+        micro[p] =
+          smoothstep(highFreq[p], 0.06, 0.50) *
+          (1 - 0.20 * smoothstep(highFreq[p], 0.85, 1));
+
+        seeds[p] =
+          micro[p] > threshold && medium[p] > 0.12 ? 1 : 0;
+      }
+    }
+  });
+
+  const densityRaw = await boxBlur(id, seeds, width, height, 3);
+  const mask = new Float32Array(count);
+  const incoherentPower =
+    0.55 + 1.65 * (1 - cfg.fragmentSensitivity);
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = y * width + x;
+
+        const density = smoothstep(densityRaw[p], 0.04, 0.42);
         const incoherent = Math.pow(
-          clamp(1 - cohArr[i], 0, 1),
+          clamp(1 - coherence[p], 0, 1),
           incoherentPower
         );
 
         let value =
-          (0.64 * microArr[i] * medArr[i] +
-            0.36 * densityScore * medArr[i]) *
+          (0.64 * micro[p] * medium[p] +
+            0.36 * density * medium[p]) *
           (0.40 + 0.60 * incoherent);
 
         value *= clamp(
           1 -
             cfg.structureProtection *
               0.60 *
-              cohArr[i],
+              coherence[p],
           0,
           1
         );
 
-        value *=
-          1 -
-          smoothstepScalar(gArr[i], 0.78, 0.98);
+        value *= 1 - smoothstep(grad[p], 0.78, 0.98);
 
         const flatTexture =
-          hArr[i] *
+          highFreq[p] *
           Math.pow(
-            1 -
-              smoothstepScalar(
-                gArr[i],
-                0.35,
-                0.75
-              ),
+            1 - smoothstep(grad[p], 0.35, 0.75),
             1.4
           );
 
-        maskArr[i] = Math.max(
+        mask[p] = Math.max(
           value,
           cfg.baseCleanup * flatTexture
         );
       }
-    });
+    }
+  });
 
-    const maskSmooth = keep(new cv.Mat());
+  const maskSmooth = await gaussianBlur(
+    id,
+    mask,
+    width,
+    height,
+    0.5
+  );
 
-    cv.GaussianBlur(
-      mask,
-      maskSmooth,
-      new cv.Size(5, 5),
-      0.50,
-      0.50,
-      cv.BORDER_DEFAULT
-    );
+  postProgress(id, "Reconstructing targeted texture...");
 
-    postProgress(id, "Reconstructing targeted texture...");
+  const [blurR, blurG, blurB] = await Promise.all([
+    gaussianBlur(id, red, width, height, cfg.crunchRadius),
+    gaussianBlur(id, green, width, height, cfg.crunchRadius),
+    gaussianBlur(id, blue, width, height, cfg.crunchRadius),
+  ]);
 
-    const candidate = keep(new cv.Mat());
-    const candidateKernel = gaussianKernelForSigma(
-      cfg.crunchRadius
-    );
+  const outR = new Float32Array(count);
+  const outG = new Float32Array(count);
+  const outB = new Float32Array(count);
+  const cleanedLum = new Float32Array(count);
 
-    cv.GaussianBlur(
-      lf,
-      candidate,
-      new cv.Size(candidateKernel, candidateKernel),
-      cfg.crunchRadius,
-      cfg.crunchRadius,
-      cv.BORDER_DEFAULT
-    );
-
-    const cleaned = keep(
-      new cv.Mat(lf.rows, lf.cols, cv.CV_32F)
-    );
-
-    const lfArr = lf.data32F;
-    const candArr = candidate.data32F;
-    const smArr = maskSmooth.data32F;
-    const cleanArr = cleaned.data32F;
-
-    await forChunks(id, cleanArr.length, (start, end) => {
-      for (let i = start; i < end; i++) {
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = y * width + x;
         const amount = clamp(
-          cfg.edgeCrunch * smArr[i] * 1.60,
+          cfg.edgeCrunch * maskSmooth[p] * 1.60,
           0,
           0.92
         );
 
-        cleanArr[i] =
-          lfArr[i] * (1 - amount) +
-          candArr[i] * amount;
+        outR[p] = red[p] * (1 - amount) + blurR[p] * amount;
+        outG[p] = green[p] * (1 - amount) + blurG[p] * amount;
+        outB[p] = blue[p] * (1 - amount) + blurB[p] * amount;
+
+        cleanedLum[p] =
+          0.2126 * outR[p] +
+          0.7152 * outG[p] +
+          0.0722 * outB[p];
       }
-    });
+    }
+  });
 
-    postProgress(id, "Cleaning specks...");
+  postProgress(id, "Cleaning specks...");
 
-    const kernel = keep(
-      cv.getStructuringElement(
-        cv.MORPH_ELLIPSE,
-        new cv.Size(3, 3)
-      )
-    );
+  const { opened, closed } = await minMax3x3(
+    id,
+    lum,
+    width,
+    height
+  );
 
-    const opened = keep(new cv.Mat());
-    const closed = keep(new cv.Mat());
+  const speckEnd = Math.max(
+    cfg.speckThreshold + 8,
+    cfg.speckThreshold * 2
+  );
 
-    cv.morphologyEx(
-      lum,
-      opened,
-      cv.MORPH_OPEN,
-      kernel
-    );
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = y * width + x;
 
-    cv.morphologyEx(
-      lum,
-      closed,
-      cv.MORPH_CLOSE,
-      kernel
-    );
-
-    const lum8 = lum.data;
-    const open8 = opened.data;
-    const close8 = closed.data;
-
-    const speckEnd = Math.max(
-      cfg.speckThreshold + 8,
-      cfg.speckThreshold * 2
-    );
-
-    await forChunks(id, cleanArr.length, (start, end) => {
-      for (let i = start; i < end; i++) {
-        const bright = Math.max(
-          lum8[i] - open8[i],
-          0
-        );
-
-        const dark = Math.max(
-          close8[i] - lum8[i],
-          0
-        );
-
+        const bright = Math.max(lum[p] - opened[p], 0);
+        const dark = Math.max(closed[p] - lum[p], 0);
         const hat = Math.max(bright, dark);
 
-        let hatMask = smoothstepScalar(
+        let hatMask = smoothstep(
           hat,
           cfg.speckThreshold,
           speckEnd
         );
 
         hatMask *=
-          smArr[i] *
+          maskSmooth[p] *
           cfg.edgeCrunch *
           0.22;
 
         const morphTarget =
-          dark > bright ? close8[i] : open8[i];
+          dark > bright ? closed[p] : opened[p];
 
-        cleanArr[i] =
-          cleanArr[i] * (1 - hatMask) +
-          morphTarget * hatMask;
+        const delta =
+          (morphTarget - cleanedLum[p]) * hatMask;
 
-        cleanArr[i] = clamp(
-          cleanArr[i],
-          0,
-          255
-        );
-      }
-    });
-
-    const cleanedLum = keep(new cv.Mat());
-    cleaned.convertTo(cleanedLum, cv.CV_8U);
-
-    const mergedChannels = new cv.MatVector();
-    mergedChannels.push_back(cleanedLum);
-    mergedChannels.push_back(channelA);
-    mergedChannels.push_back(channelB);
-
-    const outLab = keep(new cv.Mat());
-    cv.merge(mergedChannels, outLab);
-    mergedChannels.delete();
-
-    const outRgb = keep(new cv.Mat());
-    cv.cvtColor(outLab, outRgb, cv.COLOR_Lab2RGB);
-
-    const outRgba = keep(new cv.Mat());
-    cv.cvtColor(outRgb, outRgba, cv.COLOR_RGB2RGBA);
-
-    postProgress(id, "Rendering background result...");
-
-    const outputPixels = new Uint8ClampedArray(
-      outRgba.data.length
-    );
-    outputPixels.set(outRgba.data);
-
-    const maskPixels = new Uint8ClampedArray(
-      request.width *
-        request.height *
-        4
-    );
-
-    const outRgbData = outRgb.data;
-    const smoothMask = maskSmooth.data32F;
-
-    await forChunks(
-      id,
-      smoothMask.length,
-      (start, end) => {
-        for (let p = start; p < end; p++) {
-          const src = p * 3;
-          const dst = p * 4;
-          const m = clamp(
-            smoothMask[p],
-            0,
-            1
-          );
-
-          maskPixels[dst] = clamp(
-            outRgbData[src] * 0.50 +
-              255 * m * 0.50,
-            0,
-            255
-          );
-
-          maskPixels[dst + 1] = clamp(
-            outRgbData[src + 1] * 0.50,
-            0,
-            255
-          );
-
-          maskPixels[dst + 2] = clamp(
-            outRgbData[src + 2] * 0.50 +
-              120 * m * 0.50,
-            0,
-            255
-          );
-
-          maskPixels[dst + 3] = 255;
-        }
-      }
-    );
-
-    if (isStale(id)) throw new CancelledError();
-
-    self.postMessage(
-      {
-        type: "result",
-        id,
-        width: request.width,
-        height: request.height,
-        outputPixels: outputPixels.buffer,
-        maskPixels: maskPixels.buffer,
-      },
-      [
-        outputPixels.buffer,
-        maskPixels.buffer,
-      ]
-    );
-  } finally {
-    for (let i = owned.length - 1; i >= 0; i--) {
-      try {
-        owned[i]?.delete?.();
-      } catch {
-        // Best effort WASM cleanup.
+        outR[p] = clamp(outR[p] + delta, 0, 255);
+        outG[p] = clamp(outG[p] + delta, 0, 255);
+        outB[p] = clamp(outB[p] + delta, 0, 255);
       }
     }
-  }
+  });
+
+  postProgress(id, "Rendering background result...");
+
+  const output = new Uint8ClampedArray(count * 4);
+  const maskPixels = new Uint8ClampedArray(count * 4);
+
+  await forRows(id, height, (y0, y1) => {
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < width; x++) {
+        const p = y * width + x;
+        const i = p * 4;
+
+        const r = clamp(outR[p], 0, 255);
+        const g = clamp(outG[p], 0, 255);
+        const b = clamp(outB[p], 0, 255);
+        const m = clamp(maskSmooth[p], 0, 1);
+
+        output[i] = r;
+        output[i + 1] = g;
+        output[i + 2] = b;
+        output[i + 3] = 255;
+
+        maskPixels[i] = clamp(r * 0.50 + 255 * m * 0.50, 0, 255);
+        maskPixels[i + 1] = clamp(g * 0.50, 0, 255);
+        maskPixels[i + 2] = clamp(b * 0.50 + 120 * m * 0.50, 0, 255);
+        maskPixels[i + 3] = 255;
+      }
+    }
+  });
+
+  if (isStale(id)) throw new CancelledError();
+
+  self.postMessage(
+    {
+      type: "result",
+      id,
+      width,
+      height,
+      outputPixels: output.buffer,
+      maskPixels: maskPixels.buffer,
+    },
+    [output.buffer, maskPixels.buffer]
+  );
 }
 
 async function pump() {
@@ -630,33 +574,28 @@ async function pump() {
       try {
         await processRequest(request);
       } catch (error) {
-        if (error?.name === "CancelledError") {
-          continue;
-        }
+        if (error?.name === "CancelledError") continue;
 
         self.postMessage({
           type: "error",
           id: request.id,
-          message:
-            error?.message ||
-            String(error),
+          message: error?.message || String(error),
         });
       }
     }
   } finally {
     pumping = false;
-
-    if (pendingRequest) {
-      pump();
-    }
+    if (pendingRequest) pump();
   }
 }
 
 self.addEventListener("message", (event) => {
   const message = event.data || {};
-
   if (message.type !== "process") return;
 
   pendingRequest = message;
   pump();
 });
+
+// Immediate startup heartbeat. The main thread uses this to prove the worker loaded.
+self.postMessage({ type: "worker-ready" });
