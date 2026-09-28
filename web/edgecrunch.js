@@ -37,16 +37,40 @@ export const PRESETS = {
 };
 
 let worker = null;
+let workerReadyPromise = null;
 let nextRequestId = 0;
 const requests = new Map();
 
 function getWorker() {
-  if (worker) return worker;
+  if (worker && workerReadyPromise) {
+    return { worker, ready: workerReadyPromise };
+  }
 
-  worker = new Worker("./edgecrunch-worker.js");
+  let resolveReady;
+  let rejectReady;
+
+  workerReadyPromise = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+
+  worker = new Worker("./edgecrunch-worker.js?v=031");
+
+  const readyTimeout = setTimeout(() => {
+    rejectReady(
+      new Error("EdgeCrunch worker did not start within 5 seconds.")
+    );
+  }, 5000);
 
   worker.addEventListener("message", (event) => {
     const message = event.data || {};
+
+    if (message.type === "worker-ready") {
+      clearTimeout(readyTimeout);
+      resolveReady();
+      return;
+    }
+
     const request = requests.get(message.id);
     if (!request) return;
 
@@ -80,9 +104,13 @@ function getWorker() {
   });
 
   worker.addEventListener("error", (event) => {
+    clearTimeout(readyTimeout);
+
     const error = new Error(
       event.message || "EdgeCrunch worker stopped unexpectedly."
     );
+
+    rejectReady(error);
 
     for (const request of requests.values()) {
       request.reject(error);
@@ -91,9 +119,10 @@ function getWorker() {
     requests.clear();
     worker?.terminate();
     worker = null;
+    workerReadyPromise = null;
   });
 
-  return worker;
+  return { worker, ready: workerReadyPromise };
 }
 
 function pixelsToCanvas(width, height, pixelsBuffer) {
@@ -137,8 +166,11 @@ export async function processImage(
   settings,
   onProgress = () => {}
 ) {
-  const currentWorker = getWorker();
+  const { worker: currentWorker, ready } = getWorker();
   const id = ++nextRequestId;
+
+  onProgress("Starting background EdgeCrunch worker...");
+  await ready;
 
   for (const [requestId, request] of requests.entries()) {
     if (requestId < id) {
@@ -149,7 +181,7 @@ export async function processImage(
     }
   }
 
-  onProgress("Sending image to background EdgeCrunch worker...");
+  onProgress("Background worker ready. Sending image...");
 
   const { width, height, pixels } = bitmapToPixels(imageBitmap);
 
