@@ -11,6 +11,20 @@ if (!browserType) {
 const browser = await browserType.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
 
+// Native filesystem pickers are browser UI, not page UI, so headless automation
+// cannot operate them. Force the portable download fallback for smoke coverage.
+// Production Chromium still uses showSaveFilePicker when a human clicks Save As.
+await page.addInitScript(() => {
+  try {
+    Object.defineProperty(window, "showSaveFilePicker", {
+      configurable: true,
+      value: undefined,
+    });
+  } catch {
+    window.showSaveFilePicker = undefined;
+  }
+});
+
 const pageErrors = [];
 page.on("pageerror", (error) => {
   pageErrors.push(error.message || String(error));
