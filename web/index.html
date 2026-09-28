@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#090d14" />
+  <title>CosmicV EdgeCrunch Darkroom Web</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-title">◈ COSMICV EDGECRUNCH DARKROOM WEB</div>
+        <div class="brand-subtitle">
+          Web Preview 0.1 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a
+          class="top-link"
+          href="https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+        >Current Version ↗</a>
+      </div>
+    </header>
+
+    <main class="main-layout">
+      <aside class="sidebar">
+        <section class="panel">
+          <div class="panel-title">INPUT</div>
+          <div class="panel-body">
+            <button id="openBtn" class="btn btn-accent">Open Image</button>
+            <input id="fileInput" type="file" accept="image/*" hidden />
+            <button id="clearBtn" class="btn">Clear</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">VIEW</div>
+          <div class="panel-body">
+            <div class="row">
+              <button id="fitBtn" class="btn">Fit</button>
+              <button id="oneToOneBtn" class="btn">1:1</button>
+            </div>
+            <div class="row">
+              <button id="toggleSplitBtn" class="btn">Split View</button>
+              <button id="swapBtn" class="btn">Swap</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">OUTPUT</div>
+          <div class="panel-body">
+            <button id="savePngBtn" class="btn btn-accent">Save PNG</button>
+            <button id="saveJpegBtn" class="btn">Save JPEG</button>
+            <button id="saveWebpBtn" class="btn">Save WebP</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">STATUS</div>
+          <div class="panel-body">
+            <div id="statusText" class="status-text">
+              Drop an image here or click Open Image.
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="viewer-shell">
+        <div id="dropZone" class="viewer-dropzone">
+          <canvas id="viewerCanvas"></canvas>
+
+          <div id="emptyState" class="empty-state">
+            <div>
+              <div class="empty-title">DROP IMAGE HERE</div>
+              <div class="empty-sub">or click Open Image</div>
+            </div>
+          </div>
+
+          <div id="beforeTag" class="viewer-tag left-tag">BEFORE</div>
+          <div id="afterTag" class="viewer-tag right-tag">AFTER</div>
+          <div id="divider" class="divider"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
