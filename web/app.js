@@ -1,8 +1,16 @@
 import { SplitViewer } from "./viewer.js";
 import { saveCanvasAs } from "./export.js";
 import { setStatus } from "./ui.js";
-import { PRESETS, processImage } from "./edgecrunch.js";
-import { applyDarkroom, transformImage } from "./color.js";
+import {
+  PRESETS,
+  processImage,
+  processFullResolutionTiled,
+} from "./edgecrunch.js";
+import {
+  applyDarkroom,
+  applyDarkroomAsync,
+  transformImage,
+} from "./color.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -38,6 +46,8 @@ let maskBaseCanvas = null;
 let processTimer = null;
 let darkroomTimer = null;
 let processGeneration = 0;
+let previewBusy = false;
+let exportBusy = false;
 
 const transformState = {
   turns: 0,
@@ -219,16 +229,31 @@ function markCustom() {
   });
 }
 
-function setBusy(busy) {
-  document.body.classList.toggle("processing", busy);
+function updateBusyUi() {
+  document.body.classList.toggle("processing", previewBusy);
+  document.body.classList.toggle("exporting", exportBusy);
 
+  const disableSaves = previewBusy || exportBusy;
   for (const button of [
     savePngBtn,
     saveJpegBtn,
     saveWebpBtn,
   ]) {
-    button.disabled = busy;
+    button.disabled = disableSaves;
   }
+
+  openBtn.disabled = exportBusy;
+  clearBtn.disabled = exportBusy;
+}
+
+function setBusy(busy) {
+  previewBusy = busy;
+  updateBusyUi();
+}
+
+function setExportBusy(busy) {
+  exportBusy = busy;
+  updateBusyUi();
 }
 
 function scheduleProcess(delay = 260) {
@@ -358,6 +383,14 @@ async function makeProcessingBitmap(bitmap) {
 }
 
 async function loadFile(file) {
+  if (exportBusy) {
+    setStatus(
+      statusText,
+      "Full-resolution export is still running. Let it finish before opening another image."
+    );
+    return;
+  }
+
   if (!file?.type?.startsWith("image/")) {
     setStatus(statusText, "That file does not look like an image.");
     return;
@@ -611,6 +644,7 @@ fileInput.addEventListener("change", async (event) => {
 });
 
 clearBtn.addEventListener("click", () => {
+  if (exportBusy) return;
   processGeneration++;
   sourceOriginalBitmap?.close?.();
   sourceOriginalBitmap = null;
@@ -655,25 +689,74 @@ swapBtn.addEventListener("click", () => {
 });
 
 async function save(format, quality) {
-  try {
-    const canvas = viewer.getCurrentOutputCanvas();
-
-    if (!canvas) {
+  if (!sourceOriginalBitmap || exportBusy) {
+    if (!sourceOriginalBitmap) {
       setStatus(statusText, "Open an image first.");
-      return;
     }
+    return;
+  }
+
+  const cleanupSnapshot = cleanupSettingsFromControls();
+  const darkroomSnapshot = darkroomSettingsFromControls();
+  const transformSnapshot = {
+    turns: transformState.turns,
+    flipHorizontal: transformState.flipHorizontal,
+    flipVertical: transformState.flipVertical,
+  };
+
+  setExportBusy(true);
+
+  try {
+    setStatus(
+      statusText,
+      `Preparing full-resolution ${format.toUpperCase()} export from ${sourceOriginalBitmap.width}×${sourceOriginalBitmap.height} source...`
+    );
+
+    const cleanedFull = await processFullResolutionTiled(
+      sourceOriginalBitmap,
+      cleanupSnapshot,
+      (message) => setStatus(statusText, message)
+    );
+
+    const darkroomFull = await applyDarkroomAsync(
+      cleanedFull,
+      darkroomSnapshot,
+      (message) => setStatus(statusText, message)
+    );
+
+    setStatus(statusText, "Applying full-resolution transform...");
+
+    const finalCanvas = transformImage(
+      darkroomFull,
+      transformSnapshot.turns,
+      transformSnapshot.flipHorizontal,
+      transformSnapshot.flipVertical
+    );
+
+    setStatus(
+      statusText,
+      `Encoding full-resolution ${format.toUpperCase()}...`
+    );
 
     await saveCanvasAs(
-      canvas,
+      finalCanvas,
       format,
       quality,
       `${sourceName}_cosmicv`
     );
 
-    setStatus(statusText, `Saved ${format.toUpperCase()}.`);
+    setStatus(
+      statusText,
+      `Saved full-resolution ${format.toUpperCase()}: ${finalCanvas.width}×${finalCanvas.height}`
+    );
   } catch (error) {
     console.error(error);
-    setStatus(statusText, `Save failed: ${error.message}`);
+    setStatus(
+      statusText,
+      `Full-resolution export failed: ${error.message}`
+    );
+  } finally {
+    setExportBusy(false);
   }
 }
 
@@ -716,6 +799,7 @@ applyCleanupSettings(PRESETS.Balanced);
 markPreset("Balanced");
 updateTransformStatus();
 drawHueWheel();
+updateBusyUi();
 
 setStatus(
   statusText,
