@@ -31,6 +31,9 @@ const viewer = new SplitViewer(
   $("emptyState")
 );
 
+const PREVIEW_MAX_SIDE = 1600;
+
+let sourceOriginalBitmap = null;
 let sourceBitmap = null;
 let sourceName = "image";
 let processTimer = null;
@@ -172,6 +175,32 @@ async function processCurrent(preserveView = true) {
   }
 }
 
+async function makeProcessingBitmap(bitmap) {
+  const maxSide = Math.max(bitmap.width, bitmap.height);
+
+  if (maxSide <= PREVIEW_MAX_SIDE) {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0);
+    return createImageBitmap(canvas);
+  }
+
+  const scale = PREVIEW_MAX_SIDE / maxSide;
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bitmap, 0, 0, width, height);
+
+  return createImageBitmap(canvas);
+}
+
 async function loadFile(file) {
   if (!file?.type?.startsWith("image/")) {
     setStatus(statusText, "That file does not look like an image.");
@@ -184,11 +213,27 @@ async function loadFile(file) {
     processGeneration++;
     viewer.clear();
 
-    sourceBitmap = await createImageBitmap(file);
+    sourceOriginalBitmap?.close?.();
+    sourceBitmap?.close?.();
+
+    sourceOriginalBitmap = await createImageBitmap(file);
+    sourceBitmap = await makeProcessingBitmap(sourceOriginalBitmap);
     sourceName = file.name.replace(/\.[^.]+$/, "") || "image";
 
     viewer.setImages(sourceBitmap, sourceBitmap, null, false);
-    setStatus(statusText, "Image loaded. Running EdgeCrunch...");
+
+    const reduced =
+      sourceBitmap.width !== sourceOriginalBitmap.width ||
+      sourceBitmap.height !== sourceOriginalBitmap.height;
+
+    setStatus(
+      statusText,
+      reduced
+        ? `Loaded ${file.name}. Browser preview scaled to ${sourceBitmap.width}×${sourceBitmap.height}; running EdgeCrunch...`
+        : `Loaded ${file.name}. Running EdgeCrunch...`
+    );
+
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
     await processCurrent(true);
   } catch (error) {
     console.error(error);
@@ -249,6 +294,8 @@ fileInput.addEventListener("change", async (event) => {
 
 clearBtn.addEventListener("click", () => {
   processGeneration++;
+  sourceOriginalBitmap?.close?.();
+  sourceOriginalBitmap = null;
   sourceBitmap = null;
   viewer.clear();
   setBusy(false);
@@ -311,6 +358,16 @@ savePngBtn.addEventListener("click", () => save("png"));
 saveJpegBtn.addEventListener("click", () => save("jpeg", 0.96));
 saveWebpBtn.addEventListener("click", () => save("webp", 0.96));
 
+for (const eventName of ["dragenter", "dragover", "drop"]) {
+  window.addEventListener(
+    eventName,
+    (event) => {
+      event.preventDefault();
+    },
+    false
+  );
+}
+
 for (const eventName of ["dragenter", "dragover"]) {
   dropZone.addEventListener(eventName, (event) => {
     event.preventDefault();
@@ -326,6 +383,8 @@ for (const eventName of ["dragleave", "drop"]) {
 }
 
 dropZone.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  event.stopPropagation();
   const file = event.dataTransfer?.files?.[0];
   if (file) await loadFile(file);
 });
