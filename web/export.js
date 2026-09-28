@@ -9,7 +9,12 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function saveCanvasAs(canvas, format, quality = 0.95) {
+export async function saveCanvasAs(
+  canvas,
+  format,
+  quality = 0.95,
+  baseName = "cosmicv-export"
+) {
   if (!canvas) throw new Error("No image is loaded.");
 
   const formats = {
@@ -28,5 +33,8 @@ export async function saveCanvasAs(canvas, format, quality = 0.95) {
     throw new Error(`This browser could not encode ${selected.mime}.`);
   }
 
-  downloadBlob(blob, `cosmicv-export.${selected.ext}`);
+  const safeBase = String(baseName)
+    .replace(/[^a-z0-9._-]+/gi, "_")
+    .replace(/^_+|_+$/g, "") || "cosmicv-export";
+  downloadBlob(blob, `${safeBase}.${selected.ext}`);
 }
