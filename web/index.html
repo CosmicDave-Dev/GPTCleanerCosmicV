@@ -17,6 +17,15 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <div class="save-menu-wrap">
+          <button id="saveBtn" class="top-action-btn" type="button">Save</button>
+          <button id="saveAsBtn" class="top-action-btn top-action-accent" type="button">Save As</button>
+          <div id="saveAsMenu" class="save-as-menu hidden" role="menu" aria-label="Save As format">
+            <button class="save-format-btn" type="button" data-format="png">PNG</button>
+            <button class="save-format-btn" type="button" data-format="jpeg">JPEG</button>
+            <button class="save-format-btn" type="button" data-format="webp">WebP</button>
+          </div>
+        </div>
         <a
           class="top-link"
           href="https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/latest"
@@ -81,14 +90,6 @@
             </div>
           </section>
 
-          <section class="panel">
-            <div class="panel-title">OUTPUT</div>
-            <div class="panel-body">
-              <button id="savePngBtn" class="btn btn-accent">Save PNG</button>
-              <button id="saveJpegBtn" class="btn">Save JPEG</button>
-              <button id="saveWebpBtn" class="btn">Save WebP</button>
-            </div>
-          </section>
         </div>
 
         <div class="tab-panel" data-panel="cleanup">
