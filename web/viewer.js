@@ -9,6 +9,8 @@ export class SplitViewer {
 
     this.beforeImage = null;
     this.afterImage = null;
+    this.targetMaskImage = null;
+    this.showTargetMask = false;
     this.split = 0.5;
     this.showSplit = true;
 
@@ -126,18 +128,52 @@ export class SplitViewer {
     this.setImages(bitmap, bitmap);
   }
 
-  setImages(beforeImage, afterImage) {
+  setImages(beforeImage, afterImage, targetMaskImage = null, preserveView = false) {
+    const previousAfter = this.afterImage;
+    const previousMask = this.targetMaskImage;
+
     this.beforeImage = beforeImage;
     this.afterImage = afterImage;
+    this.targetMaskImage = targetMaskImage;
     this.emptyStateEl.classList.add("hidden");
-    this.fitToView();
+
+    if (previousAfter && previousAfter !== beforeImage && previousAfter !== afterImage) {
+      previousAfter.close?.();
+    }
+    if (
+      previousMask &&
+      previousMask !== previousAfter &&
+      previousMask !== beforeImage &&
+      previousMask !== targetMaskImage
+    ) {
+      previousMask.close?.();
+    }
+
+    if (preserveView) this.render();
+    else this.fitToView();
+  }
+
+  toggleTargetMask() {
+    if (!this.targetMaskImage) return false;
+    this.showTargetMask = !this.showTargetMask;
+    this.render();
+    return this.showTargetMask;
   }
 
   clear() {
     this.beforeImage?.close?.();
     if (this.afterImage !== this.beforeImage) this.afterImage?.close?.();
+    if (
+      this.targetMaskImage &&
+      this.targetMaskImage !== this.beforeImage &&
+      this.targetMaskImage !== this.afterImage
+    ) {
+      this.targetMaskImage.close?.();
+    }
     this.beforeImage = null;
     this.afterImage = null;
+    this.targetMaskImage = null;
+    this.showTargetMask = false;
     this.emptyStateEl.classList.remove("hidden");
     this.render();
   }
@@ -211,13 +247,20 @@ export class SplitViewer {
 
     this.beforeTagEl.style.display = "block";
     this.afterTagEl.style.display = "block";
+    this.afterTagEl.textContent =
+      this.showTargetMask && this.targetMaskImage ? "MASK" : "AFTER";
+
+    const activeAfter =
+      this.showTargetMask && this.targetMaskImage
+        ? this.targetMaskImage
+        : this.afterImage;
 
     const drawX = this.offsetX;
     const drawY = this.offsetY;
     const drawW = this.beforeImage.width * this.scale;
     const drawH = this.beforeImage.height * this.scale;
 
-    ctx.drawImage(this.afterImage, drawX, drawY, drawW, drawH);
+    ctx.drawImage(activeAfter, drawX, drawY, drawW, drawH);
 
     if (this.showSplit) {
       const splitX = this.split * cw;
