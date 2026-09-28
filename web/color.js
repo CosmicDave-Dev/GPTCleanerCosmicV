@@ -245,3 +245,239 @@ export function transformImage(
 
   return canvas;
 }
+
+
+const yieldUi = () =>
+  new Promise((resolve) => setTimeout(resolve, 0));
+
+export async function applyDarkroomAsync(
+  source,
+  settings = {},
+  onProgress = () => {}
+) {
+  const original = toCanvas(source);
+  const work = toCanvas(source);
+  const ctx = work.getContext("2d", { willReadFrequently: true });
+
+  const brightness = clamp(settings.brightness ?? 0, -1, 1);
+  const contrast = clamp(settings.contrast ?? 1, 0, 2);
+  const saturation = clamp(settings.saturation ?? 1, 0, 2);
+  const warmth = clamp(settings.warmth ?? 0, -1, 1);
+  const exposure = clamp(settings.exposure ?? 0, -2, 2);
+  const gamma = clamp(settings.gamma ?? 1, 0.4, 2.5);
+  const hueDegrees = clamp(settings.hueDegrees ?? 0, -180, 180);
+  const mix = clamp(settings.mix ?? 1, 0, 1);
+  const grayscale = Boolean(settings.grayscale);
+  const sepia = Boolean(settings.sepia);
+  const invert = Boolean(settings.invert);
+  const blurRadius = clamp(settings.blurRadius ?? 0, 0, 3);
+  const sharpen = clamp(settings.sharpen ?? 0, 0, 2);
+  const vignette = clamp(settings.vignette ?? 0, 0, 1);
+
+  const neutralColor =
+    Math.abs(brightness) < 1e-6 &&
+    Math.abs(contrast - 1) < 1e-6 &&
+    Math.abs(saturation - 1) < 1e-6 &&
+    Math.abs(warmth) < 1e-6 &&
+    Math.abs(exposure) < 1e-6 &&
+    Math.abs(gamma - 1) < 1e-6 &&
+    Math.abs(hueDegrees) < 1e-6 &&
+    !grayscale &&
+    !sepia &&
+    !invert;
+
+  if (!neutralColor) {
+    onProgress("Applying full-resolution Color Lab...");
+
+    const imageData = ctx.getImageData(0, 0, work.width, work.height);
+    const data = imageData.data;
+    const exposureFactor = Math.pow(2, exposure);
+    const invGamma = 1 / gamma;
+    const brightAdd = brightness * 0.35;
+    const rowsPerChunk = 32;
+
+    for (let y0 = 0; y0 < work.height; y0 += rowsPerChunk) {
+      const y1 = Math.min(work.height, y0 + rowsPerChunk);
+
+      for (let y = y0; y < y1; y++) {
+        let i = y * work.width * 4;
+
+        for (let x = 0; x < work.width; x++, i += 4) {
+          let r = data[i] / 255;
+          let g = data[i + 1] / 255;
+          let b = data[i + 2] / 255;
+
+          r = (r * exposureFactor + brightAdd - 0.5) * contrast + 0.5;
+          g = (g * exposureFactor + brightAdd - 0.5) * contrast + 0.5;
+          b = (b * exposureFactor + brightAdd - 0.5) * contrast + 0.5;
+
+          r = Math.pow(clamp(r, 0, 1), invGamma);
+          g = Math.pow(clamp(g, 0, 1), invGamma);
+          b = Math.pow(clamp(b, 0, 1), invGamma);
+
+          r = clamp(r + 0.18 * warmth, 0, 1);
+          g = clamp(g + 0.025 * warmth, 0, 1);
+          b = clamp(b - 0.18 * warmth, 0, 1);
+
+          [r, g, b] = hueRotateSaturate(
+            r,
+            g,
+            b,
+            hueDegrees,
+            saturation
+          );
+
+          if (grayscale) {
+            const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            r = g = b = gray;
+          }
+
+          if (sepia) {
+            const rr = clamp(
+              0.393 * r + 0.769 * g + 0.189 * b,
+              0,
+              1
+            );
+            const gg = clamp(
+              0.349 * r + 0.686 * g + 0.168 * b,
+              0,
+              1
+            );
+            const bb = clamp(
+              0.272 * r + 0.534 * g + 0.131 * b,
+              0,
+              1
+            );
+            r = rr;
+            g = gg;
+            b = bb;
+          }
+
+          if (invert) {
+            r = 1 - r;
+            g = 1 - g;
+            b = 1 - b;
+          }
+
+          data[i] = Math.round(r * 255);
+          data[i + 1] = Math.round(g * 255);
+          data[i + 2] = Math.round(b * 255);
+        }
+      }
+
+      await yieldUi();
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  if (blurRadius > 0.02) {
+    onProgress("Applying full-resolution blur...");
+
+    const blurred = document.createElement("canvas");
+    blurred.width = work.width;
+    blurred.height = work.height;
+    const bctx = blurred.getContext("2d");
+    bctx.filter = `blur(${blurRadius}px)`;
+    bctx.drawImage(work, 0, 0);
+
+    ctx.clearRect(0, 0, work.width, work.height);
+    ctx.filter = "none";
+    ctx.drawImage(blurred, 0, 0);
+    await yieldUi();
+  }
+
+  if (sharpen > 0.001) {
+    onProgress("Applying full-resolution sharpen...");
+
+    const soft = document.createElement("canvas");
+    soft.width = work.width;
+    soft.height = work.height;
+    const sctx = soft.getContext("2d", {
+      willReadFrequently: true,
+    });
+    sctx.filter = "blur(1px)";
+    sctx.drawImage(work, 0, 0);
+
+    const baseData = ctx.getImageData(0, 0, work.width, work.height);
+    const softData = sctx.getImageData(0, 0, work.width, work.height);
+    const base = baseData.data;
+    const blur = softData.data;
+    const rowsPerChunk = 32;
+
+    for (let y0 = 0; y0 < work.height; y0 += rowsPerChunk) {
+      const y1 = Math.min(work.height, y0 + rowsPerChunk);
+
+      for (let y = y0; y < y1; y++) {
+        let i = y * work.width * 4;
+
+        for (let x = 0; x < work.width; x++, i += 4) {
+          base[i] = clamp(
+            base[i] + sharpen * (base[i] - blur[i]),
+            0,
+            255
+          );
+          base[i + 1] = clamp(
+            base[i + 1] +
+              sharpen * (base[i + 1] - blur[i + 1]),
+            0,
+            255
+          );
+          base[i + 2] = clamp(
+            base[i + 2] +
+              sharpen * (base[i + 2] - blur[i + 2]),
+            0,
+            255
+          );
+        }
+      }
+
+      await yieldUi();
+    }
+
+    ctx.putImageData(baseData, 0, 0);
+  }
+
+  if (vignette > 0.001) {
+    onProgress("Applying full-resolution vignette...");
+
+    const radius = Math.hypot(work.width, work.height) * 0.55;
+    const gradient = ctx.createRadialGradient(
+      work.width / 2,
+      work.height / 2,
+      radius * 0.18,
+      work.width / 2,
+      work.height / 2,
+      radius
+    );
+
+    gradient.addColorStop(0, "rgba(0,0,0,0)");
+    gradient.addColorStop(
+      1,
+      `rgba(0,0,0,${clamp(vignette * 0.62, 0, 0.62)})`
+    );
+
+    ctx.save();
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, work.width, work.height);
+    ctx.restore();
+    await yieldUi();
+  }
+
+  if (mix >= 0.999) return work;
+  if (mix <= 0.001) return original;
+
+  onProgress("Blending full-resolution adjustment mix...");
+
+  const mixed = document.createElement("canvas");
+  mixed.width = work.width;
+  mixed.height = work.height;
+  const mctx = mixed.getContext("2d");
+  mctx.drawImage(original, 0, 0);
+  mctx.globalAlpha = mix;
+  mctx.drawImage(work, 0, 0);
+  mctx.globalAlpha = 1;
+
+  await yieldUi();
+  return mixed;
+}
