@@ -71,6 +71,7 @@ button, a { font: inherit; }
   flex: 0 0 auto;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .top-link {
@@ -568,5 +569,79 @@ body.exporting .status-text {
   to {
     opacity: 1;
     text-shadow: 0 0 14px rgba(57, 215, 255, 0.7);
+  }
+}
+
+
+.save-menu-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-action-btn {
+  padding: 10px 13px;
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.top-action-btn:hover {
+  background: var(--panel-3);
+  border-color: var(--cyan);
+}
+
+.top-action-accent {
+  color: var(--cyan);
+  border-color: rgba(57, 215, 255, 0.45);
+  background: linear-gradient(180deg, #1b2a3f, #17273c);
+}
+
+.top-action-btn:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.save-as-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  min-width: 148px;
+  padding: 7px;
+  border: 1px solid var(--grid);
+  border-radius: 11px;
+  background: rgba(9, 13, 20, 0.98);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(12px);
+}
+
+.save-format-btn {
+  display: block;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.save-format-btn:hover {
+  background: var(--panel-2);
+  color: var(--cyan);
+}
+
+@media (max-width: 1000px) {
+  .topbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
