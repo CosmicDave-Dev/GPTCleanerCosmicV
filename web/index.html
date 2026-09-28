@@ -13,7 +13,7 @@
       <div class="brand-block">
         <div class="brand-title">◈ COSMICV EDGECRUNCH DARKROOM WEB</div>
         <div class="brand-subtitle">
-          Web Preview 0.3.1 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
+          Web Preview 0.4.0 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
         </div>
       </div>
       <div class="topbar-actions">
@@ -28,94 +28,180 @@
 
     <main class="main-layout">
       <aside class="sidebar">
-        <section class="panel">
-          <div class="panel-title">INPUT</div>
-          <div class="panel-body">
-            <button id="openBtn" class="btn btn-accent">Open Image</button>
-            <input id="fileInput" type="file" accept="image/*" hidden />
-            <button id="clearBtn" class="btn">Clear</button>
-          </div>
-        </section>
+        <nav class="tabbar" aria-label="CosmicV tools">
+          <button class="tab-btn active" data-tab="quick">Quick</button>
+          <button class="tab-btn" data-tab="cleanup">Cleanup</button>
+          <button class="tab-btn" data-tab="color">Color</button>
+          <button class="tab-btn" data-tab="effects">Effects</button>
+          <button class="tab-btn" data-tab="transform">Transform</button>
+        </nav>
 
-
-        <section class="panel">
-          <div class="panel-title">QUICK CLEAN</div>
-          <div class="panel-body">
-            <div class="preset-grid">
-              <button class="btn preset-btn" data-preset="Conservative">0.25<br><span>Conservative</span></button>
-              <button class="btn preset-btn active" data-preset="Balanced">0.50<br><span>Balanced</span></button>
-              <button class="btn preset-btn" data-preset="Strong">0.75<br><span>Strong</span></button>
-              <button class="btn preset-btn" data-preset="Aggressive">1.00<br><span>Aggressive</span></button>
+        <div class="tab-panel active" data-panel="quick">
+          <section class="panel">
+            <div class="panel-title">INPUT</div>
+            <div class="panel-body">
+              <button id="openBtn" class="btn btn-accent">Open Image</button>
+              <input id="fileInput" type="file" accept="image/*" hidden />
+              <button id="clearBtn" class="btn">Clear</button>
             </div>
-            <div class="hint">Start at Balanced. Move stronger only if artifacts remain.</div>
-          </div>
-        </section>
+          </section>
 
-        <details class="panel advanced-panel">
-          <summary class="panel-title">ADVANCED CLEANUP</summary>
-          <div class="panel-body">
-            <label class="control">
-              <div class="control-head"><span>Edge crunch</span><input id="edgeCrunchValue" class="number-input" type="number" min="0" max="100" step="1" value="55"></div>
-              <input id="edgeCrunchRange" type="range" min="0" max="100" step="1" value="55">
-            </label>
-
-            <label class="control">
-              <div class="control-head"><span>Fragment sensitivity</span><input id="fragmentValue" class="number-input" type="number" min="0" max="100" step="1" value="65"></div>
-              <input id="fragmentRange" type="range" min="0" max="100" step="1" value="65">
-            </label>
-
-            <label class="control">
-              <div class="control-head"><span>Structure protection</span><input id="protectValue" class="number-input" type="number" min="0" max="100" step="1" value="90"></div>
-              <input id="protectRange" type="range" min="0" max="100" step="1" value="90">
-            </label>
-
-            <label class="control">
-              <div class="control-head"><span>Crunch radius</span><input id="radiusValue" class="number-input" type="number" min="0.35" max="2.5" step="0.01" value="0.80"></div>
-              <input id="radiusRange" type="range" min="0.35" max="2.5" step="0.01" value="0.80">
-            </label>
-
-            <label class="control">
-              <div class="control-head"><span>Base cleanup</span><input id="baseValue" class="number-input" type="number" min="0" max="100" step="1" value="15"></div>
-              <input id="baseRange" type="range" min="0" max="100" step="1" value="15">
-            </label>
-
-            <label class="control">
-              <div class="control-head"><span>Speck threshold</span><input id="speckValue" class="number-input" type="number" min="1" max="40" step="1" value="10"></div>
-              <input id="speckRange" type="range" min="1" max="40" step="1" value="10">
-            </label>
-          </div>
-        </details>
-
-        <section class="panel">
-          <div class="panel-title">VIEW</div>
-          <div class="panel-body">
-            <div class="row">
-              <button id="fitBtn" class="btn">Fit</button>
-              <button id="oneToOneBtn" class="btn">1:1</button>
+          <section class="panel">
+            <div class="panel-title">QUICK CLEAN</div>
+            <div class="panel-body">
+              <div class="preset-grid">
+                <button class="btn preset-btn" data-preset="Conservative">0.25<br><span>Conservative</span></button>
+                <button class="btn preset-btn active" data-preset="Balanced">0.50<br><span>Balanced</span></button>
+                <button class="btn preset-btn" data-preset="Strong">0.75<br><span>Strong</span></button>
+                <button class="btn preset-btn" data-preset="Aggressive">1.00<br><span>Aggressive</span></button>
+              </div>
+              <div class="hint">Start at Balanced. Move stronger only if artifacts remain.</div>
             </div>
-            <div class="row">
-              <button id="toggleSplitBtn" class="btn">Split View</button>
-              <button id="targetMaskBtn" class="btn">Target Mask</button>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">VIEW</div>
+            <div class="panel-body">
+              <div class="row">
+                <button id="fitBtn" class="btn">Fit</button>
+                <button id="oneToOneBtn" class="btn">1:1</button>
+              </div>
+              <div class="row">
+                <button id="toggleSplitBtn" class="btn">Split View</button>
+                <button id="targetMaskBtn" class="btn">Target Mask</button>
+              </div>
+              <button id="swapBtn" class="btn">Swap Before/After</button>
             </div>
-            <button id="swapBtn" class="btn">Swap Before/After</button>
-          </div>
-        </section>
+          </section>
 
-        <section class="panel">
-          <div class="panel-title">OUTPUT</div>
-          <div class="panel-body">
-            <button id="savePngBtn" class="btn btn-accent">Save PNG</button>
-            <button id="saveJpegBtn" class="btn">Save JPEG</button>
-            <button id="saveWebpBtn" class="btn">Save WebP</button>
-          </div>
-        </section>
+          <section class="panel">
+            <div class="panel-title">OUTPUT</div>
+            <div class="panel-body">
+              <button id="savePngBtn" class="btn btn-accent">Save PNG</button>
+              <button id="saveJpegBtn" class="btn">Save JPEG</button>
+              <button id="saveWebpBtn" class="btn">Save WebP</button>
+            </div>
+          </section>
+        </div>
 
-        <section class="panel">
+        <div class="tab-panel" data-panel="cleanup">
+          <section class="panel">
+            <div class="panel-title">CLEANUP</div>
+            <div class="panel-body">
+              <label class="control">
+                <div class="control-head"><span>Edge crunch</span><input id="edgeCrunchValue" class="number-input" type="number" min="0" max="100" step="1" value="55"></div>
+                <input id="edgeCrunchRange" type="range" min="0" max="100" step="1" value="55">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Fragment sensitivity</span><input id="fragmentValue" class="number-input" type="number" min="0" max="100" step="1" value="65"></div>
+                <input id="fragmentRange" type="range" min="0" max="100" step="1" value="65">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Structure protection</span><input id="protectValue" class="number-input" type="number" min="0" max="100" step="1" value="90"></div>
+                <input id="protectRange" type="range" min="0" max="100" step="1" value="90">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Crunch radius</span><input id="radiusValue" class="number-input" type="number" min="0.35" max="2.5" step="0.01" value="0.80"></div>
+                <input id="radiusRange" type="range" min="0.35" max="2.5" step="0.01" value="0.80">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Base cleanup</span><input id="baseValue" class="number-input" type="number" min="0" max="100" step="1" value="15"></div>
+                <input id="baseRange" type="range" min="0" max="100" step="1" value="15">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Speck threshold</span><input id="speckValue" class="number-input" type="number" min="1" max="40" step="1" value="10"></div>
+                <input id="speckRange" type="range" min="1" max="40" step="1" value="10">
+              </label>
+              <button id="resetCleanupBtn" class="btn">Reset Cleanup to Balanced</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-panel" data-panel="color">
+          <section class="panel">
+            <div class="panel-title">COLOR LAB</div>
+            <div class="panel-body">
+              <label class="control">
+                <div class="control-head"><span>Hue</span><input id="hueValue" class="number-input" type="number" min="-180" max="180" step="1" value="0"></div>
+                <input id="hueRange" class="hue-range" type="range" min="-180" max="180" step="1" value="0">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Adjustment mix</span><input id="mixValue" class="number-input" type="number" min="0" max="100" step="1" value="100"></div>
+                <input id="mixRange" type="range" min="0" max="100" step="1" value="100">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Brightness</span><input id="brightnessValue" class="number-input" type="number" min="-100" max="100" step="1" value="0"></div>
+                <input id="brightnessRange" type="range" min="-100" max="100" step="1" value="0">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Contrast</span><input id="contrastValue" class="number-input" type="number" min="0" max="200" step="1" value="100"></div>
+                <input id="contrastRange" type="range" min="0" max="200" step="1" value="100">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Saturation</span><input id="saturationValue" class="number-input" type="number" min="0" max="200" step="1" value="100"></div>
+                <input id="saturationRange" type="range" min="0" max="200" step="1" value="100">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Warmth</span><input id="warmthValue" class="number-input" type="number" min="-100" max="100" step="1" value="0"></div>
+                <input id="warmthRange" type="range" min="-100" max="100" step="1" value="0">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Exposure</span><input id="exposureValue" class="number-input" type="number" min="-2" max="2" step="0.05" value="0"></div>
+                <input id="exposureRange" type="range" min="-2" max="2" step="0.05" value="0">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Gamma</span><input id="gammaValue" class="number-input" type="number" min="0.4" max="2.5" step="0.05" value="1"></div>
+                <input id="gammaRange" type="range" min="0.4" max="2.5" step="0.05" value="1">
+              </label>
+              <button id="resetColorBtn" class="btn">Reset Color</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-panel" data-panel="effects">
+          <section class="panel">
+            <div class="panel-title">EFFECTS</div>
+            <div class="panel-body">
+              <label class="check-row"><input id="grayscaleCheck" type="checkbox"> Grayscale</label>
+              <label class="check-row"><input id="sepiaCheck" type="checkbox"> Sepia</label>
+              <label class="check-row"><input id="invertCheck" type="checkbox"> Invert</label>
+              <label class="control">
+                <div class="control-head"><span>Blur</span><input id="blurValue" class="number-input" type="number" min="0" max="3" step="0.05" value="0"></div>
+                <input id="blurRange" type="range" min="0" max="3" step="0.05" value="0">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Sharpen</span><input id="sharpenValue" class="number-input" type="number" min="0" max="2" step="0.05" value="0"></div>
+                <input id="sharpenRange" type="range" min="0" max="2" step="0.05" value="0">
+              </label>
+              <label class="control">
+                <div class="control-head"><span>Vignette</span><input id="vignetteValue" class="number-input" type="number" min="0" max="100" step="1" value="0"></div>
+                <input id="vignetteRange" type="range" min="0" max="100" step="1" value="0">
+              </label>
+              <button id="resetEffectsBtn" class="btn">Reset Effects</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-panel" data-panel="transform">
+          <section class="panel">
+            <div class="panel-title">GEOMETRY</div>
+            <div class="panel-body">
+              <div class="row">
+                <button id="rotateLeftBtn" class="btn">↶ Rotate Left</button>
+                <button id="rotateRightBtn" class="btn">Rotate Right ↷</button>
+              </div>
+              <label class="check-row"><input id="flipHCheck" type="checkbox"> Flip Horizontal</label>
+              <label class="check-row"><input id="flipVCheck" type="checkbox"> Flip Vertical</label>
+              <div id="rotationStatus" class="hint">Rotation: 0°</div>
+              <button id="resetTransformBtn" class="btn">Reset Transform</button>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel status-panel">
           <div class="panel-title">STATUS</div>
           <div class="panel-body">
-            <div id="statusText" class="status-text">
-              Drop an image here or click Open Image.
-            </div>
+            <div id="statusText" class="status-text">Drop an image here or click Open Image.</div>
           </div>
         </section>
       </aside>
@@ -123,14 +209,12 @@
       <section class="viewer-shell">
         <div id="dropZone" class="viewer-dropzone">
           <canvas id="viewerCanvas"></canvas>
-
           <div id="emptyState" class="empty-state">
             <div>
               <div class="empty-title">DROP IMAGE HERE</div>
               <div class="empty-sub">or click Open Image</div>
             </div>
           </div>
-
           <div id="beforeTag" class="viewer-tag left-tag">BEFORE</div>
           <div id="afterTag" class="viewer-tag right-tag">AFTER</div>
           <div id="divider" class="divider"></div>
