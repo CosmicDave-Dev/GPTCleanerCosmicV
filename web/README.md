@@ -4,7 +4,7 @@ Browser-side companion to **CosmicV EdgeCrunch Darkroom V1.4**.
 
 The shipped Windows EXE remains a separate first-class build. The web edition is its browser sidekick and does not replace it.
 
-## Web Preview 0.3.0
+## Web Preview 0.3.1
 
 Implemented:
 
@@ -18,8 +18,10 @@ Implemented:
 - Fit and 1:1 modes
 - Conservative / Balanced / Strong / Aggressive presets using the desktop V1.4 values
 - bounded 1024px processing preview for fast browser interaction
-- dedicated Web Worker for all heavy EdgeCrunch/OpenCV processing
+- dedicated Web Worker for all heavy EdgeCrunch processing
 - stale processing requests are cancelled when newer settings arrive
+- pure JavaScript typed-array engine: no OpenCV.js and no external runtime download
+- worker startup heartbeat with a 5-second failure timeout
 - advanced EdgeCrunch controls
 - browser-side fragmented micro-edge detector
 - structure protection
@@ -29,9 +31,7 @@ Implemented:
 - PNG / JPEG / WebP export
 - Current Version link
 
-The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server. Web Preview 0.3.0 processes a maximum 1024px-side preview in a dedicated background worker so mouse, zoom, drag/drop, presets, and view controls remain responsive while EdgeCrunch runs. Full-resolution background export is a later web milestone.
-
-OpenCV.js is currently loaded from the official OpenCV documentation CDN. The image itself remains local to the browser. A later pass can vendor OpenCV.js for a fully self-contained/offline web build.
+The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server. Web Preview 0.3.1 uses a self-contained JavaScript worker with a maximum 1024px-side processing preview so mouse, zoom, drag/drop, presets, and view controls remain responsive while EdgeCrunch runs. Full-resolution background export is a later web milestone.
 
 ## Local test
 
