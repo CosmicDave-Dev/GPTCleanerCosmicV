@@ -13,7 +13,7 @@
       <div class="brand-block">
         <div class="brand-title">◈ COSMICV EDGECRUNCH DARKROOM WEB</div>
         <div class="brand-subtitle">
-          Web Preview 0.4.1 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
+          Web Preview 0.4.2 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
         </div>
       </div>
       <div class="topbar-actions">
@@ -230,6 +230,23 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="fallbackSaveDialog" class="save-dialog-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="fallbackSaveTitle">
+    <div class="save-dialog">
+      <div id="fallbackSaveTitle" class="save-dialog-title">Save As</div>
+      <div class="save-dialog-note">
+        Firefox cannot open the native Windows Save As picker from a web page.
+        Rename the file here. Firefox will choose the destination according to its Downloads setting.
+        To choose a folder every time, enable <strong>Always ask you where to save files</strong> in Firefox Settings → General → Downloads.
+      </div>
+      <label class="save-dialog-label" for="fallbackSaveName">File name</label>
+      <input id="fallbackSaveName" class="save-dialog-input" type="text" autocomplete="off" spellcheck="false" />
+      <div class="save-dialog-actions">
+        <button id="fallbackSaveCancel" class="top-action-btn" type="button">Cancel</button>
+        <button id="fallbackSaveConfirm" class="top-action-btn top-action-accent" type="button">Continue</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./app.js"></script>
