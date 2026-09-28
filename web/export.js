@@ -58,6 +58,7 @@ export async function chooseSaveTarget(
       fileHandle: null,
       filename: suggestedName,
       format,
+      needsFallbackDialog: true,
     };
   }
 
