@@ -4,7 +4,6 @@ import { setStatus } from "./ui.js";
 import {
   PRESETS,
   processImage,
-  waitForOpenCV,
 } from "./edgecrunch.js";
 
 const $ = (id) => document.getElementById(id);
@@ -38,7 +37,6 @@ let sourceBitmap = null;
 let sourceName = "image";
 let processTimer = null;
 let processGeneration = 0;
-let cvReady = false;
 
 const controls = {
   edgeCrunch: {
@@ -391,21 +389,7 @@ dropZone.addEventListener("drop", async (event) => {
 
 applySettings(PRESETS.Balanced);
 markPreset("Balanced");
-setStatus(statusText, "Loading browser image engine...");
-
-waitForOpenCV()
-  .then(() => {
-    cvReady = true;
-    setStatus(
-      statusText,
-      "Ready. Drop an image here or click Open Image."
-    );
-  })
-  .catch((error) => {
-    cvReady = false;
-    console.error(error);
-    setStatus(
-      statusText,
-      "Could not load OpenCV.js. Check the internet connection and refresh."
-    );
-  });
+setStatus(
+  statusText,
+  "Ready. Drop an image here or click Open Image. EdgeCrunch loads only after an image is selected."
+);
