@@ -547,3 +547,26 @@ body.exporting .viewer-dropzone::after {
   line-height: 1.35;
   text-align: center;
 }
+
+
+.status-panel-top {
+  margin-bottom: 14px;
+}
+
+body.processing .status-text,
+body.exporting .status-text {
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(57, 215, 255, 0.45);
+  animation: cosmicv-status-pulse 1.25s ease-in-out infinite alternate;
+}
+
+@keyframes cosmicv-status-pulse {
+  from {
+    opacity: 0.72;
+    text-shadow: 0 0 4px rgba(57, 215, 255, 0.25);
+  }
+  to {
+    opacity: 1;
+    text-shadow: 0 0 14px rgba(57, 215, 255, 0.7);
+  }
+}
