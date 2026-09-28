@@ -1,10 +1,8 @@
 import { SplitViewer } from "./viewer.js";
 import { saveCanvasAs } from "./export.js";
 import { setStatus } from "./ui.js";
-import {
-  PRESETS,
-  processImage,
-} from "./edgecrunch.js";
+import { PRESETS, processImage } from "./edgecrunch.js";
+import { applyDarkroom, transformImage } from "./color.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,10 +33,19 @@ const PREVIEW_MAX_SIDE = 1024;
 let sourceOriginalBitmap = null;
 let sourceBitmap = null;
 let sourceName = "image";
+let edgeBaseCanvas = null;
+let maskBaseCanvas = null;
 let processTimer = null;
+let darkroomTimer = null;
 let processGeneration = 0;
 
-const controls = {
+const transformState = {
+  turns: 0,
+  flipHorizontal: false,
+  flipVertical: false,
+};
+
+const cleanupControls = {
   edgeCrunch: {
     range: $("edgeCrunchRange"),
     number: $("edgeCrunchValue"),
@@ -71,25 +78,60 @@ const controls = {
   },
 };
 
-function settingsFromControls() {
+const darkroomPairs = [
+  ["hueRange", "hueValue"],
+  ["mixRange", "mixValue"],
+  ["brightnessRange", "brightnessValue"],
+  ["contrastRange", "contrastValue"],
+  ["saturationRange", "saturationValue"],
+  ["warmthRange", "warmthValue"],
+  ["exposureRange", "exposureValue"],
+  ["gammaRange", "gammaValue"],
+  ["blurRange", "blurValue"],
+  ["sharpenRange", "sharpenValue"],
+  ["vignetteRange", "vignetteValue"],
+];
+
+function cleanupSettingsFromControls() {
   const result = {};
-  for (const [key, control] of Object.entries(controls)) {
+
+  for (const [key, control] of Object.entries(cleanupControls)) {
     result[key] = Number(control.range.value) / control.scale;
   }
+
   result.speckThreshold = Math.round(result.speckThreshold);
   return result;
 }
 
-function displayValue(key, value) {
+function darkroomSettingsFromControls() {
+  return {
+    hueDegrees: Number($("hueRange").value),
+    mix: Number($("mixRange").value) / 100,
+    brightness: Number($("brightnessRange").value) / 100,
+    contrast: Number($("contrastRange").value) / 100,
+    saturation: Number($("saturationRange").value) / 100,
+    warmth: Number($("warmthRange").value) / 100,
+    exposure: Number($("exposureRange").value),
+    gamma: Number($("gammaRange").value),
+    grayscale: $("grayscaleCheck").checked,
+    sepia: $("sepiaCheck").checked,
+    invert: $("invertCheck").checked,
+    blurRadius: Number($("blurRange").value),
+    sharpen: Number($("sharpenRange").value),
+    vignette: Number($("vignetteRange").value) / 100,
+  };
+}
+
+function displayCleanupValue(key, value) {
   if (key === "crunchRadius") return Number(value).toFixed(2);
   return String(Math.round(value));
 }
 
-function applySettings(settings) {
-  for (const [key, control] of Object.entries(controls)) {
+function applyCleanupSettings(settings) {
+  for (const [key, control] of Object.entries(cleanupControls)) {
     const raw = settings[key] * control.scale;
     control.range.value = String(raw);
-    control.number.value = displayValue(key, raw);
+    control.number.value = displayCleanupValue(key, raw);
   }
 }
 
@@ -108,8 +150,6 @@ function markCustom() {
 function setBusy(busy) {
   document.body.classList.toggle("processing", busy);
 
-  // Keep the app interactive while EdgeCrunch works in the background.
-  // Only export buttons are disabled until the newest processed result lands.
   for (const button of [
     savePngBtn,
     saveJpegBtn,
@@ -122,17 +162,68 @@ function setBusy(busy) {
 function scheduleProcess(delay = 260) {
   if (!sourceBitmap) return;
   if (processTimer) clearTimeout(processTimer);
+
   processTimer = setTimeout(() => {
     processTimer = null;
     processCurrent(true);
   }, delay);
 }
 
+function scheduleDarkroom(delay = 80) {
+  if (!sourceBitmap) return;
+  if (darkroomTimer) clearTimeout(darkroomTimer);
+
+  darkroomTimer = setTimeout(() => {
+    darkroomTimer = null;
+    refreshDisplay(true);
+  }, delay);
+}
+
+function refreshDisplay(preserveView = true) {
+  if (!sourceBitmap) return;
+
+  const cleanedSource = edgeBaseCanvas || sourceBitmap;
+  const adjusted = applyDarkroom(
+    cleanedSource,
+    darkroomSettingsFromControls()
+  );
+
+  const beforeDisplay = transformImage(
+    sourceBitmap,
+    transformState.turns,
+    transformState.flipHorizontal,
+    transformState.flipVertical
+  );
+
+  const afterDisplay = transformImage(
+    adjusted,
+    transformState.turns,
+    transformState.flipHorizontal,
+    transformState.flipVertical
+  );
+
+  const maskDisplay = maskBaseCanvas
+    ? transformImage(
+        maskBaseCanvas,
+        transformState.turns,
+        transformState.flipHorizontal,
+        transformState.flipVertical
+      )
+    : null;
+
+  viewer.setImages(
+    beforeDisplay,
+    afterDisplay,
+    maskDisplay,
+    preserveView
+  );
+}
+
 async function processCurrent(preserveView = true) {
   if (!sourceBitmap) return;
 
   const generation = ++processGeneration;
-  const settings = settingsFromControls();
+  const settings = cleanupSettingsFromControls();
   setBusy(true);
 
   try {
@@ -144,23 +235,10 @@ async function processCurrent(preserveView = true) {
 
     if (generation !== processGeneration) return;
 
-    const [afterBitmap, maskBitmap] = await Promise.all([
-      createImageBitmap(result.outputCanvas),
-      createImageBitmap(result.targetMaskCanvas),
-    ]);
+    edgeBaseCanvas = result.outputCanvas;
+    maskBaseCanvas = result.targetMaskCanvas;
 
-    if (generation !== processGeneration) {
-      afterBitmap.close?.();
-      maskBitmap.close?.();
-      return;
-    }
-
-    viewer.setImages(
-      sourceBitmap,
-      afterBitmap,
-      maskBitmap,
-      preserveView
-    );
+    refreshDisplay(preserveView);
 
     setStatus(
       statusText,
@@ -225,8 +303,10 @@ async function loadFile(file) {
     sourceOriginalBitmap = await createImageBitmap(file);
     sourceBitmap = await makeProcessingBitmap(sourceOriginalBitmap);
     sourceName = file.name.replace(/\.[^.]+$/, "") || "image";
+    edgeBaseCanvas = null;
+    maskBaseCanvas = null;
 
-    viewer.setImages(sourceBitmap, sourceBitmap, null, false);
+    refreshDisplay(false);
 
     const reduced =
       sourceBitmap.width !== sourceOriginalBitmap.width ||
@@ -239,7 +319,10 @@ async function loadFile(file) {
         : `Loaded ${file.name}. EdgeCrunch is running in the background...`
     );
 
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => resolve())
+    );
+
     await processCurrent(true);
   } catch (error) {
     console.error(error);
@@ -247,48 +330,193 @@ async function loadFile(file) {
   }
 }
 
+function bindRangeNumber(rangeId, numberId, onChange) {
+  const range = $(rangeId);
+  const number = $(numberId);
+
+  const format = (value) => {
+    const step = Number(range.step || 1);
+    if (step < 1) {
+      const decimals = step < 0.1 ? 2 : 1;
+      return Number(value).toFixed(decimals);
+    }
+    return String(Math.round(Number(value)));
+  };
+
+  range.addEventListener("input", () => {
+    number.value = format(range.value);
+    onChange();
+  });
+
+  const commit = () => {
+    const min = Number(range.min);
+    const max = Number(range.max);
+    let value = Number(number.value);
+
+    if (!Number.isFinite(value)) value = Number(range.value);
+    value = Math.max(min, Math.min(max, value));
+
+    range.value = String(value);
+    number.value = format(value);
+    onChange();
+  };
+
+  number.addEventListener("change", commit);
+  number.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit();
+      number.blur();
+    }
+  });
+}
+
+for (const button of document.querySelectorAll(".tab-btn")) {
+  button.addEventListener("click", () => {
+    const tab = button.dataset.tab;
+
+    document.querySelectorAll(".tab-btn").forEach((candidate) => {
+      candidate.classList.toggle("active", candidate === button);
+    });
+
+    document.querySelectorAll(".tab-panel").forEach((panel) => {
+      panel.classList.toggle("active", panel.dataset.panel === tab);
+    });
+  });
+}
+
 for (const button of document.querySelectorAll(".preset-btn")) {
   button.addEventListener("click", () => {
     const name = button.dataset.preset;
     const preset = PRESETS[name];
     if (!preset) return;
-    applySettings(preset);
+
+    applyCleanupSettings(preset);
     markPreset(name);
     setStatus(statusText, `${name} preset selected.`);
     scheduleProcess(40);
   });
 }
 
-for (const [key, control] of Object.entries(controls)) {
-  control.range.addEventListener("input", () => {
-    control.number.value = displayValue(key, control.range.value);
-    markCustom();
-    scheduleProcess();
-  });
-
-  const commitNumber = () => {
-    const min = Number(control.range.min);
-    const max = Number(control.range.max);
-    let value = Number(control.number.value);
-
-    if (!Number.isFinite(value)) value = Number(control.range.value);
-    value = Math.max(min, Math.min(max, value));
-
-    control.number.value = displayValue(key, value);
-    control.range.value = String(value);
-    markCustom();
-    scheduleProcess();
-  };
-
-  control.number.addEventListener("change", commitNumber);
-  control.number.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commitNumber();
-      control.number.blur();
+for (const [key, control] of Object.entries(cleanupControls)) {
+  bindRangeNumber(
+    control.range.id,
+    control.number.id,
+    () => {
+      control.number.value = displayCleanupValue(
+        key,
+        control.range.value
+      );
+      markCustom();
+      scheduleProcess();
     }
+  );
+}
+
+$("resetCleanupBtn").addEventListener("click", () => {
+  applyCleanupSettings(PRESETS.Balanced);
+  markPreset("Balanced");
+  scheduleProcess(40);
+  setStatus(statusText, "Cleanup reset to Balanced.");
+});
+
+for (const [rangeId, numberId] of darkroomPairs) {
+  bindRangeNumber(rangeId, numberId, () => {
+    scheduleDarkroom();
   });
 }
+
+for (const id of [
+  "grayscaleCheck",
+  "sepiaCheck",
+  "invertCheck",
+]) {
+  $(id).addEventListener("change", () => {
+    scheduleDarkroom(0);
+  });
+}
+
+$("resetColorBtn").addEventListener("click", () => {
+  const defaults = {
+    hueRange: 0,
+    mixRange: 100,
+    brightnessRange: 0,
+    contrastRange: 100,
+    saturationRange: 100,
+    warmthRange: 0,
+    exposureRange: 0,
+    gammaRange: 1,
+  };
+
+  for (const [rangeId, value] of Object.entries(defaults)) {
+    const range = $(rangeId);
+    const number = $(
+      rangeId.replace("Range", "Value")
+    );
+    range.value = String(value);
+    number.value = String(value);
+  }
+
+  scheduleDarkroom(0);
+  setStatus(statusText, "Color controls reset.");
+});
+
+$("resetEffectsBtn").addEventListener("click", () => {
+  $("grayscaleCheck").checked = false;
+  $("sepiaCheck").checked = false;
+  $("invertCheck").checked = false;
+
+  for (const [rangeId, value] of [
+    ["blurRange", 0],
+    ["sharpenRange", 0],
+    ["vignetteRange", 0],
+  ]) {
+    const range = $(rangeId);
+    const number = $(
+      rangeId.replace("Range", "Value")
+    );
+    range.value = String(value);
+    number.value = String(value);
+  }
+
+  scheduleDarkroom(0);
+  setStatus(statusText, "Effects reset.");
+});
+
+function updateTransformStatus() {
+  $("rotationStatus").textContent =
+    `Rotation: ${transformState.turns * 90}°`;
+}
+
+function applyTransformState() {
+  transformState.flipHorizontal = $("flipHCheck").checked;
+  transformState.flipVertical = $("flipVCheck").checked;
+  updateTransformStatus();
+  refreshDisplay(false);
+}
+
+$("rotateLeftBtn").addEventListener("click", () => {
+  transformState.turns =
+    (transformState.turns + 3) % 4;
+  applyTransformState();
+});
+
+$("rotateRightBtn").addEventListener("click", () => {
+  transformState.turns =
+    (transformState.turns + 1) % 4;
+  applyTransformState();
+});
+
+$("flipHCheck").addEventListener("change", applyTransformState);
+$("flipVCheck").addEventListener("change", applyTransformState);
+
+$("resetTransformBtn").addEventListener("click", () => {
+  transformState.turns = 0;
+  $("flipHCheck").checked = false;
+  $("flipVCheck").checked = false;
+  applyTransformState();
+  setStatus(statusText, "Transform reset.");
+});
 
 openBtn.addEventListener("click", () => fileInput.click());
 
@@ -303,6 +531,8 @@ clearBtn.addEventListener("click", () => {
   sourceOriginalBitmap?.close?.();
   sourceOriginalBitmap = null;
   sourceBitmap = null;
+  edgeBaseCanvas = null;
+  maskBaseCanvas = null;
   viewer.clear();
   setBusy(false);
   setStatus(statusText, "Workspace cleared.");
@@ -326,6 +556,7 @@ toggleSplitBtn.addEventListener("click", () => {
 targetMaskBtn.addEventListener("click", () => {
   const showing = viewer.toggleTargetMask();
   targetMaskBtn.classList.toggle("btn-accent", showing);
+
   setStatus(
     statusText,
     showing
@@ -342,6 +573,7 @@ swapBtn.addEventListener("click", () => {
 async function save(format, quality) {
   try {
     const canvas = viewer.getCurrentOutputCanvas();
+
     if (!canvas) {
       setStatus(statusText, "Open an image first.");
       return;
@@ -353,6 +585,7 @@ async function save(format, quality) {
       quality,
       `${sourceName}_cosmicv`
     );
+
     setStatus(statusText, `Saved ${format.toUpperCase()}.`);
   } catch (error) {
     console.error(error);
@@ -395,9 +628,11 @@ dropZone.addEventListener("drop", async (event) => {
   if (file) await loadFile(file);
 });
 
-applySettings(PRESETS.Balanced);
+applyCleanupSettings(PRESETS.Balanced);
 markPreset("Balanced");
+updateTransformStatus();
+
 setStatus(
   statusText,
-  "Ready. Drop an image here or click Open Image. EdgeCrunch loads only after an image is selected."
+  "Ready. Drop an image here or click Open Image."
 );
