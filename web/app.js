@@ -30,7 +30,7 @@ const viewer = new SplitViewer(
   $("emptyState")
 );
 
-const PREVIEW_MAX_SIDE = 1600;
+const PREVIEW_MAX_SIDE = 1024;
 
 let sourceOriginalBitmap = null;
 let sourceBitmap = null;
@@ -107,9 +107,10 @@ function markCustom() {
 
 function setBusy(busy) {
   document.body.classList.toggle("processing", busy);
+
+  // Keep the app interactive while EdgeCrunch works in the background.
+  // Only export buttons are disabled until the newest processed result lands.
   for (const button of [
-    openBtn,
-    clearBtn,
     savePngBtn,
     saveJpegBtn,
     saveWebpBtn,
@@ -166,6 +167,13 @@ async function processCurrent(preserveView = true) {
       `EdgeCrunch ready · ${sourceName} · drag cyan divider to compare`
     );
   } catch (error) {
+    if (
+      generation !== processGeneration ||
+      error?.name === "AbortError"
+    ) {
+      return;
+    }
+
     console.error(error);
     setStatus(statusText, `EdgeCrunch failed: ${error.message}`);
   } finally {
@@ -227,8 +235,8 @@ async function loadFile(file) {
     setStatus(
       statusText,
       reduced
-        ? `Loaded ${file.name}. Browser preview scaled to ${sourceBitmap.width}×${sourceBitmap.height}; running EdgeCrunch...`
-        : `Loaded ${file.name}. Running EdgeCrunch...`
+        ? `Loaded ${file.name}. Browser preview scaled to ${sourceBitmap.width}×${sourceBitmap.height}; EdgeCrunch is running in the background...`
+        : `Loaded ${file.name}. EdgeCrunch is running in the background...`
     );
 
     await new Promise((resolve) => requestAnimationFrame(() => resolve()));
