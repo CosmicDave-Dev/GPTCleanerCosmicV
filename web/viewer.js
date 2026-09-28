@@ -284,7 +284,7 @@ export class SplitViewer {
       ctx.restore();
 
       this.dividerEl.style.display = "block";
-      this.dividerEl.style.left = `${splitX - 1}px`;
+      this.dividerEl.style.left = `${splitX}px`;
     } else {
       this.dividerEl.style.display = "none";
     }
