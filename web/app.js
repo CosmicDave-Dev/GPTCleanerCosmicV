@@ -1,5 +1,8 @@
 import { SplitViewer } from "./viewer.js";
-import { saveCanvasAs } from "./export.js";
+import {
+  chooseSaveTarget,
+  saveCanvasAs,
+} from "./export.js";
 import { setStatus } from "./ui.js";
 import {
   PRESETS,
@@ -22,9 +25,9 @@ const oneToOneBtn = $("oneToOneBtn");
 const toggleSplitBtn = $("toggleSplitBtn");
 const targetMaskBtn = $("targetMaskBtn");
 const swapBtn = $("swapBtn");
-const savePngBtn = $("savePngBtn");
-const saveJpegBtn = $("saveJpegBtn");
-const saveWebpBtn = $("saveWebpBtn");
+const saveBtn = $("saveBtn");
+const saveAsBtn = $("saveAsBtn");
+const saveAsMenu = $("saveAsMenu");
 const statusText = $("statusText");
 const dropZone = $("dropZone");
 
@@ -48,6 +51,7 @@ let darkroomTimer = null;
 let processGeneration = 0;
 let previewBusy = false;
 let exportBusy = false;
+let lastSaveChoice = null;
 
 const transformState = {
   turns: 0,
@@ -234,12 +238,11 @@ function updateBusyUi() {
   document.body.classList.toggle("exporting", exportBusy);
 
   const disableSaves = previewBusy || exportBusy;
-  for (const button of [
-    savePngBtn,
-    saveJpegBtn,
-    saveWebpBtn,
-  ]) {
-    button.disabled = disableSaves;
+  saveBtn.disabled = disableSaves;
+  saveAsBtn.disabled = disableSaves;
+
+  if (disableSaves) {
+    saveAsMenu.classList.add("hidden");
   }
 
   openBtn.disabled = exportBusy;
@@ -408,6 +411,7 @@ async function loadFile(file) {
     sourceOriginalBitmap = await createImageBitmap(file);
     sourceBitmap = await makeProcessingBitmap(sourceOriginalBitmap);
     sourceName = file.name.replace(/\.[^.]+$/, "") || "image";
+    lastSaveChoice = null;
     edgeBaseCanvas = null;
     maskBaseCanvas = null;
 
@@ -649,6 +653,8 @@ clearBtn.addEventListener("click", () => {
   sourceOriginalBitmap?.close?.();
   sourceOriginalBitmap = null;
   sourceBitmap = null;
+  lastSaveChoice = null;
+  saveAsMenu.classList.add("hidden");
   edgeBaseCanvas = null;
   maskBaseCanvas = null;
   viewer.clear();
@@ -688,12 +694,36 @@ swapBtn.addEventListener("click", () => {
   setStatus(statusText, "Before / After swapped.");
 });
 
-async function save(format, quality) {
+function qualityForFormat(format) {
+  return format === "png" ? 0.95 : 0.96;
+}
+
+function toggleSaveAsMenu(forceOpen = null) {
+  if (!sourceOriginalBitmap) {
+    saveAsMenu.classList.add("hidden");
+    setStatus(statusText, "Open an image first.");
+    return;
+  }
+
+  const shouldOpen =
+    forceOpen === null
+      ? saveAsMenu.classList.contains("hidden")
+      : Boolean(forceOpen);
+
+  saveAsMenu.classList.toggle("hidden", !shouldOpen);
+}
+
+async function save(
+  format,
+  quality,
+  target = null,
+  rememberChoice = true
+) {
   if (!sourceOriginalBitmap || exportBusy) {
     if (!sourceOriginalBitmap) {
       setStatus(statusText, "Open an image first.");
     }
-    return;
+    return false;
   }
 
   const cleanupSnapshot = cleanupSettingsFromControls();
@@ -738,31 +768,105 @@ async function save(format, quality) {
       `Encoding full-resolution ${format.toUpperCase()}...`
     );
 
-    await saveCanvasAs(
+    const written = await saveCanvasAs(
       finalCanvas,
       format,
       quality,
-      `${sourceName}_cosmicv`
+      `${sourceName}_cosmicv`,
+      target
     );
+
+    if (rememberChoice) {
+      lastSaveChoice = {
+        format,
+        quality,
+        target: {
+          fileHandle: written.fileHandle || null,
+          filename: written.filename,
+        },
+      };
+    }
 
     setStatus(
       statusText,
       `Saved full-resolution ${format.toUpperCase()}: ${finalCanvas.width}×${finalCanvas.height}`
     );
+
+    return true;
   } catch (error) {
     console.error(error);
     setStatus(
       statusText,
       `Full-resolution export failed: ${error.message}`
     );
+    return false;
   } finally {
     setExportBusy(false);
   }
 }
 
-savePngBtn.addEventListener("click", () => save("png"));
-saveJpegBtn.addEventListener("click", () => save("jpeg", 0.96));
-saveWebpBtn.addEventListener("click", () => save("webp", 0.96));
+saveBtn.addEventListener("click", async () => {
+  if (!sourceOriginalBitmap) {
+    setStatus(statusText, "Open an image first.");
+    return;
+  }
+
+  if (!lastSaveChoice) {
+    toggleSaveAsMenu(true);
+    setStatus(
+      statusText,
+      "Choose a format for the first save. After that, Save reuses it."
+    );
+    return;
+  }
+
+  await save(
+    lastSaveChoice.format,
+    lastSaveChoice.quality,
+    lastSaveChoice.target,
+    true
+  );
+});
+
+saveAsBtn.addEventListener("click", () => {
+  toggleSaveAsMenu();
+});
+
+for (const button of document.querySelectorAll(".save-format-btn")) {
+  button.addEventListener("click", async () => {
+    const format = button.dataset.format;
+    const quality = qualityForFormat(format);
+
+    saveAsMenu.classList.add("hidden");
+
+    const target = await chooseSaveTarget(
+      format,
+      `${sourceName}_cosmicv`
+    );
+
+    if (!target) {
+      setStatus(statusText, "Save As cancelled.");
+      return;
+    }
+
+    await save(format, quality, target, true);
+  });
+}
+
+document.addEventListener("pointerdown", (event) => {
+  if (
+    !saveAsMenu.classList.contains("hidden") &&
+    !event.target.closest(".save-menu-wrap")
+  ) {
+    saveAsMenu.classList.add("hidden");
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    saveAsMenu.classList.add("hidden");
+  }
+});
 
 for (const eventName of ["dragenter", "dragover", "drop"]) {
   window.addEventListener(
