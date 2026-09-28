@@ -33,7 +33,9 @@ Implemented:
 - base cleanup
 - speck cleanup
 - Target Mask diagnostic view
-- PNG / JPEG / WebP export
+- top-bar Save / Save As workflow beside Current Version
+- Save As format chooser for PNG / JPEG / WebP
+- Save reuses the most recent format/target during the session
 - original-resolution tiled export with progress reporting
 - Current Version link
 
