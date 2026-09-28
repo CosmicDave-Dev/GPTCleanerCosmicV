@@ -1,0 +1,62 @@
+name: Smoke Test CosmicV Web Browsers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - ".github/workflows/smoke-web-browsers.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    name: ${{ matrix.browser }} smoke
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser:
+          - chromium
+          - firefox
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright
+
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Start CosmicV static server
+        shell: bash
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 --directory web > /tmp/cosmicv-web.log 2>&1 &
+          echo $! > /tmp/cosmicv-web.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/cosmicv-web.log
+          exit 1
+
+      - name: Run browser smoke test
+        env:
+          BROWSER: ${{ matrix.browser }}
+        run: node web/browser-smoke.mjs
+
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/cosmicv-web.log || true
