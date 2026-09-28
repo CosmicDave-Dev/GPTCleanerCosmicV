@@ -13,7 +13,7 @@
       <div class="brand-block">
         <div class="brand-title">◈ COSMICV EDGECRUNCH DARKROOM WEB</div>
         <div class="brand-subtitle">
-          Web Preview 0.1 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
+          Web Preview 0.2 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
         </div>
       </div>
       <div class="topbar-actions">
@@ -37,6 +37,55 @@
           </div>
         </section>
 
+
+        <section class="panel">
+          <div class="panel-title">QUICK CLEAN</div>
+          <div class="panel-body">
+            <div class="preset-grid">
+              <button class="btn preset-btn" data-preset="Conservative">0.25<br><span>Conservative</span></button>
+              <button class="btn preset-btn active" data-preset="Balanced">0.50<br><span>Balanced</span></button>
+              <button class="btn preset-btn" data-preset="Strong">0.75<br><span>Strong</span></button>
+              <button class="btn preset-btn" data-preset="Aggressive">1.00<br><span>Aggressive</span></button>
+            </div>
+            <div class="hint">Start at Balanced. Move stronger only if artifacts remain.</div>
+          </div>
+        </section>
+
+        <details class="panel advanced-panel">
+          <summary class="panel-title">ADVANCED CLEANUP</summary>
+          <div class="panel-body">
+            <label class="control">
+              <div class="control-head"><span>Edge crunch</span><input id="edgeCrunchValue" class="number-input" type="number" min="0" max="100" step="1" value="55"></div>
+              <input id="edgeCrunchRange" type="range" min="0" max="100" step="1" value="55">
+            </label>
+
+            <label class="control">
+              <div class="control-head"><span>Fragment sensitivity</span><input id="fragmentValue" class="number-input" type="number" min="0" max="100" step="1" value="65"></div>
+              <input id="fragmentRange" type="range" min="0" max="100" step="1" value="65">
+            </label>
+
+            <label class="control">
+              <div class="control-head"><span>Structure protection</span><input id="protectValue" class="number-input" type="number" min="0" max="100" step="1" value="90"></div>
+              <input id="protectRange" type="range" min="0" max="100" step="1" value="90">
+            </label>
+
+            <label class="control">
+              <div class="control-head"><span>Crunch radius</span><input id="radiusValue" class="number-input" type="number" min="0.35" max="2.5" step="0.01" value="0.80"></div>
+              <input id="radiusRange" type="range" min="0.35" max="2.5" step="0.01" value="0.80">
+            </label>
+
+            <label class="control">
+              <div class="control-head"><span>Base cleanup</span><input id="baseValue" class="number-input" type="number" min="0" max="100" step="1" value="15"></div>
+              <input id="baseRange" type="range" min="0" max="100" step="1" value="15">
+            </label>
+
+            <label class="control">
+              <div class="control-head"><span>Speck threshold</span><input id="speckValue" class="number-input" type="number" min="1" max="40" step="1" value="10"></div>
+              <input id="speckRange" type="range" min="1" max="40" step="1" value="10">
+            </label>
+          </div>
+        </details>
+
         <section class="panel">
           <div class="panel-title">VIEW</div>
           <div class="panel-body">
@@ -46,8 +95,9 @@
             </div>
             <div class="row">
               <button id="toggleSplitBtn" class="btn">Split View</button>
-              <button id="swapBtn" class="btn">Swap</button>
+              <button id="targetMaskBtn" class="btn">Target Mask</button>
             </div>
+            <button id="swapBtn" class="btn">Swap Before/After</button>
           </div>
         </section>
 
@@ -89,6 +139,7 @@
     </main>
   </div>
 
+  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>
