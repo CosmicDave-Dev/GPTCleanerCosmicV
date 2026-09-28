@@ -4,7 +4,7 @@ Browser-side companion to **CosmicV EdgeCrunch Darkroom V1.4**.
 
 The shipped Windows EXE remains a separate first-class build. The web edition is its browser sidekick and does not replace it.
 
-## Web Preview 0.4.0
+## Web Preview 0.4.1
 
 Implemented:
 
@@ -34,9 +34,10 @@ Implemented:
 - speck cleanup
 - Target Mask diagnostic view
 - PNG / JPEG / WebP export
+- original-resolution tiled export with progress reporting
 - Current Version link
 
-The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server. Web Preview 0.4.0 uses the self-contained EdgeCrunch worker plus browser-side Darkroom and transform layers on a maximum 1024px-side processing preview. Full-resolution background export is a later web milestone.
+The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server. Web Preview 0.4.1 keeps the interactive preview capped at 1024px for responsiveness, while Save PNG / JPEG / WebP reprocess the original-resolution image in overlapped background-worker tiles before applying the selected Darkroom and Transform settings.
 
 ## Local test
 
@@ -56,6 +57,15 @@ http://localhost:8000/
 
 If port 8000 is already occupied, stop the previous server with Ctrl+C first.
 
-## Next
+## Release candidate checklist
 
-After the EdgeCrunch browser port is validated against the desktop app, the next major parity pass is the Darkroom layer: brightness, contrast, saturation, warmth, exposure, gamma, hue, adjustment mix, effects, rotate/flip, and richer export presets.
+Before Web V1.0 is published:
+
+- Firefox browser smoke test
+- Chromium browser smoke test
+- one human full-resolution export check on a real source image
+- package the self-contained web folder as a release ZIP
+
+## Development credit
+
+Created at **Cosmic Dave Studios** with development assistance from **ChatGPT by OpenAI**.
