@@ -30,6 +30,10 @@ const saveAsBtn = $("saveAsBtn");
 const saveAsMenu = $("saveAsMenu");
 const statusText = $("statusText");
 const dropZone = $("dropZone");
+const fallbackSaveDialog = $("fallbackSaveDialog");
+const fallbackSaveName = $("fallbackSaveName");
+const fallbackSaveCancel = $("fallbackSaveCancel");
+const fallbackSaveConfirm = $("fallbackSaveConfirm");
 
 const viewer = new SplitViewer(
   $("viewerCanvas"),
@@ -698,6 +702,75 @@ function qualityForFormat(format) {
   return format === "png" ? 0.95 : 0.96;
 }
 
+function extensionForFormat(format) {
+  if (format === "jpeg") return ".jpg";
+  if (format === "webp") return ".webp";
+  return ".png";
+}
+
+function normalizeFallbackFilename(filename, format) {
+  const ext = extensionForFormat(format);
+  const trimmed = String(filename || "").trim();
+
+  if (!trimmed) {
+    return `${sourceName}_cosmicv${ext}`;
+  }
+
+  const withoutKnownExtension = trimmed.replace(
+    /\.(png|jpe?g|webp)$/i,
+    ""
+  );
+
+  return `${withoutKnownExtension}${ext}`;
+}
+
+function requestFallbackFilename(suggestedName, format) {
+  return new Promise((resolve) => {
+    fallbackSaveName.value = suggestedName;
+    fallbackSaveDialog.classList.remove("hidden");
+
+    const cleanup = () => {
+      fallbackSaveDialog.classList.add("hidden");
+      fallbackSaveCancel.removeEventListener("click", onCancel);
+      fallbackSaveConfirm.removeEventListener("click", onConfirm);
+      fallbackSaveName.removeEventListener("keydown", onKeyDown);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onConfirm = () => {
+      const filename = normalizeFallbackFilename(
+        fallbackSaveName.value,
+        format
+      );
+      cleanup();
+      resolve(filename);
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        onConfirm();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+      }
+    };
+
+    fallbackSaveCancel.addEventListener("click", onCancel);
+    fallbackSaveConfirm.addEventListener("click", onConfirm);
+    fallbackSaveName.addEventListener("keydown", onKeyDown);
+
+    queueMicrotask(() => {
+      fallbackSaveName.focus();
+      fallbackSaveName.select();
+    });
+  });
+}
+
 function toggleSaveAsMenu(forceOpen = null) {
   if (!sourceOriginalBitmap) {
     saveAsMenu.classList.add("hidden");
@@ -839,7 +912,7 @@ for (const button of document.querySelectorAll(".save-format-btn")) {
 
     saveAsMenu.classList.add("hidden");
 
-    const target = await chooseSaveTarget(
+    let target = await chooseSaveTarget(
       format,
       `${sourceName}_cosmicv`
     );
@@ -847,6 +920,29 @@ for (const button of document.querySelectorAll(".save-format-btn")) {
     if (!target) {
       setStatus(statusText, "Save As cancelled.");
       return;
+    }
+
+    if (target.needsFallbackDialog) {
+      const filename = await requestFallbackFilename(
+        target.filename,
+        format
+      );
+
+      if (!filename) {
+        setStatus(statusText, "Save As cancelled.");
+        return;
+      }
+
+      target = {
+        ...target,
+        filename,
+        needsFallbackDialog: false,
+      };
+
+      setStatus(
+        statusText,
+        "Firefox will use its Downloads setting for the destination. Enable “Always ask you where to save files” to choose a folder every time."
+      );
     }
 
     await save(format, quality, target, true);
