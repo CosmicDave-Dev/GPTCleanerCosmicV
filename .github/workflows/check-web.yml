@@ -29,6 +29,7 @@ jobs:
           node --check web/app.js
           node --check web/viewer.js
           node --check web/edgecrunch.js
+          node --check web/edgecrunch-worker.js
           node --check web/export.js
           node --check web/ui.js
           node --check web/color.js
@@ -39,5 +40,5 @@ jobs:
           test -f web/index.html
           test -f web/style.css
           grep -q "COSMICV EDGECRUNCH DARKROOM WEB" web/index.html
-          grep -q "Web Preview 0.2" web/index.html
+          grep -q "Web Preview 0.3.0" web/index.html
           grep -q "processImage" web/edgecrunch.js
