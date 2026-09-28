@@ -31,6 +31,24 @@ try {
   );
   assert.ok(dividerWidth >= 12, `divider hitbox too narrow: ${dividerWidth}px`);
 
+
+  const sidebarOrder = await page.evaluate(() => {
+    const sidebar = document.querySelector(".sidebar");
+    const status = document.querySelector(".status-panel-top");
+    const tabs = document.querySelector(".tabbar");
+
+    return {
+      hasTopStatus: Boolean(status),
+      statusBeforeTabs:
+        Boolean(sidebar && status && tabs) &&
+        [...sidebar.children].indexOf(status) <
+          [...sidebar.children].indexOf(tabs),
+    };
+  });
+
+  assert.equal(sidebarOrder.hasTopStatus, true);
+  assert.equal(sidebarOrder.statusBeforeTabs, true);
+
   await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
     canvas.width = 96;
@@ -68,6 +86,17 @@ try {
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
+
+  await page.waitForFunction(
+    () => document.body.classList.contains("processing"),
+    null,
+    { timeout: 10000 }
+  );
+
+  const processingColor = await page.locator("#statusText").evaluate(
+    (element) => getComputedStyle(element).color
+  );
+  assert.match(processingColor, /rgb\(57, 215, 255\)/);
 
   await page.waitForFunction(
     () => document.querySelector("#statusText")?.textContent?.includes("EdgeCrunch ready"),
