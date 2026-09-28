@@ -144,13 +144,17 @@ try {
   await page.locator("#saveAsBtn").click();
   await page.waitForSelector("#saveAsMenu:not(.hidden)");
 
+  await page.locator('.save-format-btn[data-format="png"]').click();
+  await page.waitForSelector("#fallbackSaveDialog:not(.hidden)");
+  await page.locator("#fallbackSaveName").fill("cosmicv-custom-name");
+
   const downloadPromise = page.waitForEvent("download", {
     timeout: 120000,
   });
-  await page.locator('.save-format-btn[data-format="png"]').click();
+  await page.locator("#fallbackSaveConfirm").click();
   const download = await downloadPromise;
 
-  assert.match(download.suggestedFilename(), /cosmicv.*\.png$/i);
+  assert.equal(download.suggestedFilename(), "cosmicv-custom-name.png");
 
   await page.waitForFunction(
     () =>
