@@ -38,7 +38,7 @@ try {
 
   await page.waitForSelector(".brand-title");
   const subtitle = await page.locator(".brand-subtitle").textContent();
-  assert.match(subtitle || "", /Web Preview 0\\.4\\.2/);
+  assert.match(subtitle || "", /Web Preview 0\.4\.2/);
 
   const dividerWidth = await page.locator("#divider").evaluate(
     (element) => parseFloat(getComputedStyle(element).width)
