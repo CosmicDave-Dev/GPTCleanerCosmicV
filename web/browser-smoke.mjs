@@ -31,6 +31,10 @@ try {
   );
   assert.ok(dividerWidth >= 12, `divider hitbox too narrow: ${dividerWidth}px`);
 
+  assert.equal(await page.locator("#saveBtn").count(), 1);
+  assert.equal(await page.locator("#saveAsBtn").count(), 1);
+  assert.equal(await page.locator("#savePngBtn").count(), 0);
+
 
   const sidebarOrder = await page.evaluate(() => {
     const sidebar = document.querySelector(".sidebar");
@@ -123,10 +127,13 @@ try {
   await page.locator("#resetTransformBtn").click();
   await page.locator('[data-tab="quick"]').click();
 
+  await page.locator("#saveAsBtn").click();
+  await page.waitForSelector("#saveAsMenu:not(.hidden)");
+
   const downloadPromise = page.waitForEvent("download", {
     timeout: 120000,
   });
-  await page.locator("#savePngBtn").click();
+  await page.locator('.save-format-btn[data-format="png"]').click();
   const download = await downloadPromise;
 
   assert.match(download.suggestedFilename(), /cosmicv.*\.png$/i);
