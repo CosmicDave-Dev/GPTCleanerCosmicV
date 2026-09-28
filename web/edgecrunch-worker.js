@@ -521,7 +521,10 @@ async function processRequest(request) {
   postProgress(id, "Rendering background result...");
 
   const output = new Uint8ClampedArray(count * 4);
-  const maskPixels = new Uint8ClampedArray(count * 4);
+  const includeMask = request.includeMask !== false;
+  const maskPixels = includeMask
+    ? new Uint8ClampedArray(count * 4)
+    : null;
 
   await forRows(id, height, (y0, y1) => {
     for (let y = y0; y < y1; y++) {
@@ -539,27 +542,31 @@ async function processRequest(request) {
         output[i + 2] = b;
         output[i + 3] = 255;
 
-        maskPixels[i] = clamp(r * 0.50 + 255 * m * 0.50, 0, 255);
-        maskPixels[i + 1] = clamp(g * 0.50, 0, 255);
-        maskPixels[i + 2] = clamp(b * 0.50 + 120 * m * 0.50, 0, 255);
-        maskPixels[i + 3] = 255;
+        if (maskPixels) {
+          maskPixels[i] = clamp(r * 0.50 + 255 * m * 0.50, 0, 255);
+          maskPixels[i + 1] = clamp(g * 0.50, 0, 255);
+          maskPixels[i + 2] = clamp(b * 0.50 + 120 * m * 0.50, 0, 255);
+          maskPixels[i + 3] = 255;
+        }
       }
     }
   });
 
   if (isStale(id)) throw new CancelledError();
 
-  self.postMessage(
-    {
-      type: "result",
-      id,
-      width,
-      height,
-      outputPixels: output.buffer,
-      maskPixels: maskPixels.buffer,
-    },
-    [output.buffer, maskPixels.buffer]
-  );
+  const response = {
+    type: "result",
+    id,
+    width,
+    height,
+    outputPixels: output.buffer,
+    maskPixels: maskPixels ? maskPixels.buffer : null,
+  };
+
+  const transfers = [output.buffer];
+  if (maskPixels) transfers.push(maskPixels.buffer);
+
+  self.postMessage(response, transfers);
 }
 
 async function pump() {
