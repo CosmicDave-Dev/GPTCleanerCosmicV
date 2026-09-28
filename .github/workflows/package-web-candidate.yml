@@ -1,0 +1,63 @@
+name: Package CosmicV Web V1.0 Candidate
+
+on:
+  workflow_run:
+    workflows:
+      - "Smoke Test CosmicV Web Browsers"
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Stage self-contained web package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ROOT="package/CosmicV-EdgeCrunch-Darkroom-Web-V1.0"
+          mkdir -p "$ROOT"
+
+          cp web/index.html "$ROOT/"
+          cp web/style.css "$ROOT/"
+          cp web/app.js "$ROOT/"
+          cp web/viewer.js "$ROOT/"
+          cp web/edgecrunch.js "$ROOT/"
+          cp web/edgecrunch-worker.js "$ROOT/"
+          cp web/color.js "$ROOT/"
+          cp web/export.js "$ROOT/"
+          cp web/ui.js "$ROOT/"
+          cp web/RUN-COSMICV-WEB.bat "$ROOT/"
+          cp web/README.md "$ROOT/README.md"
+          cp LICENSE "$ROOT/LICENSE.txt"
+
+          (
+            cd package
+            zip -r "../CosmicV-EdgeCrunch-Darkroom-Web-V1.0.zip"               "CosmicV-EdgeCrunch-Darkroom-Web-V1.0"
+          )
+
+      - name: Write package checksum
+        shell: bash
+        run: |
+          sha256sum CosmicV-EdgeCrunch-Darkroom-Web-V1.0.zip             > CosmicV-EdgeCrunch-Darkroom-Web-V1.0.zip.sha256
+
+      - name: Upload release-candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CosmicV-EdgeCrunch-Darkroom-Web-V1.0
+          path: |
+            CosmicV-EdgeCrunch-Darkroom-Web-V1.0.zip
+            CosmicV-EdgeCrunch-Darkroom-Web-V1.0.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
