@@ -50,20 +50,60 @@ async function forChunks(length, callback, chunkSize = 131072) {
   }
 }
 
+let openCvLoadPromise = null;
+
+function getCvCandidate() {
+  return globalThis.cv || null;
+}
+
+async function resolveCvCandidate(candidate) {
+  if (candidate && typeof candidate.then === "function") {
+    candidate = await candidate;
+    globalThis.cv = candidate;
+  }
+  return candidate;
+}
+
 export async function waitForOpenCV(timeoutMs = 30000) {
-  const started = performance.now();
+  let candidate = await resolveCvCandidate(getCvCandidate());
+  if (candidate?.Mat && candidate?.cvtColor && candidate?.Sobel) {
+    return candidate;
+  }
 
-  while (performance.now() - started < timeoutMs) {
-    let candidate = window.cv;
-
-    if (candidate && typeof candidate.then === "function") {
-      try {
-        candidate = await candidate;
-        window.cv = candidate;
-      } catch {
-        candidate = null;
+  if (!openCvLoadPromise) {
+    openCvLoadPromise = new Promise((resolve, reject) => {
+      if (typeof document === "undefined") {
+        reject(new Error("OpenCV.js loader requires a browser document."));
+        return;
       }
-    }
+
+      const existing = document.querySelector('script[data-cosmicv-opencv]');
+      if (existing) {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("Could not download OpenCV.js.")),
+          { once: true }
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://docs.opencv.org/4.x/opencv.js";
+      script.async = true;
+      script.dataset.cosmicvOpencv = "1";
+      script.onload = resolve;
+      script.onerror = () =>
+        reject(new Error("Could not download OpenCV.js."));
+      document.head.appendChild(script);
+    });
+  }
+
+  await openCvLoadPromise;
+
+  const started = performance.now();
+  while (performance.now() - started < timeoutMs) {
+    candidate = await resolveCvCandidate(getCvCandidate());
 
     if (candidate?.Mat && candidate?.cvtColor && candidate?.Sobel) {
       return candidate;
@@ -72,7 +112,7 @@ export async function waitForOpenCV(timeoutMs = 30000) {
     await new Promise((resolve) => setTimeout(resolve, 75));
   }
 
-  throw new Error("OpenCV.js did not finish loading.");
+  throw new Error("OpenCV.js did not finish initializing.");
 }
 
 function percentile(values, percent) {
