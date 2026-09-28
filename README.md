@@ -72,6 +72,12 @@ dist\CosmicV-EdgeCrunch-Darkroom-V1.4-Windows-x64.zip
 
 See `docs/WINDOWS-EXE-INSTALL.txt` for end-user instructions.
 
+## Web companion
+
+The repository also contains **CosmicV EdgeCrunch Darkroom Web**, a client-side browser companion under `/web`.
+
+The web edition is separate from the Windows V1.4 executable and does not replace it. See [`web/README.md`](web/README.md) for local testing and current web-preview status.
+
 ## Privacy
 
 CosmicV EdgeCrunch Darkroom processes images locally. It does not require an account or cloud upload service to clean or edit images.
