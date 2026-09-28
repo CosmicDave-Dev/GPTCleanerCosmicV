@@ -13,6 +13,7 @@ export class SplitViewer {
     this.showTargetMask = false;
     this.split = 0.5;
     this.showSplit = true;
+    this.swapMode = false;
 
     this.scale = 1;
     this.fitScale = 1;
@@ -174,6 +175,7 @@ export class SplitViewer {
     this.afterImage = null;
     this.targetMaskImage = null;
     this.showTargetMask = false;
+    this.swapMode = false;
     this.emptyStateEl.classList.remove("hidden");
     this.render();
   }
@@ -213,7 +215,7 @@ export class SplitViewer {
 
   swapImages() {
     if (!this.beforeImage || !this.afterImage) return;
-    [this.beforeImage, this.afterImage] = [this.afterImage, this.beforeImage];
+    this.swapMode = !this.swapMode;
     this.render();
   }
 
@@ -247,20 +249,30 @@ export class SplitViewer {
 
     this.beforeTagEl.style.display = "block";
     this.afterTagEl.style.display = "block";
-    this.afterTagEl.textContent =
-      this.showTargetMask && this.targetMaskImage ? "MASK" : "AFTER";
 
-    const activeAfter =
+    const processedImage =
       this.showTargetMask && this.targetMaskImage
         ? this.targetMaskImage
         : this.afterImage;
+    const processedLabel =
+      this.showTargetMask && this.targetMaskImage ? "MASK" : "AFTER";
+
+    const leftImage = this.swapMode ? processedImage : this.beforeImage;
+    const rightImage = this.swapMode ? this.beforeImage : processedImage;
+
+    this.beforeTagEl.textContent = this.swapMode
+      ? processedLabel
+      : "BEFORE";
+    this.afterTagEl.textContent = this.swapMode
+      ? "BEFORE"
+      : processedLabel;
 
     const drawX = this.offsetX;
     const drawY = this.offsetY;
     const drawW = this.beforeImage.width * this.scale;
     const drawH = this.beforeImage.height * this.scale;
 
-    ctx.drawImage(activeAfter, drawX, drawY, drawW, drawH);
+    ctx.drawImage(rightImage, drawX, drawY, drawW, drawH);
 
     if (this.showSplit) {
       const splitX = this.split * cw;
@@ -268,7 +280,7 @@ export class SplitViewer {
       ctx.beginPath();
       ctx.rect(0, 0, splitX, ch);
       ctx.clip();
-      ctx.drawImage(this.beforeImage, drawX, drawY, drawW, drawH);
+      ctx.drawImage(leftImage, drawX, drawY, drawW, drawH);
       ctx.restore();
 
       this.dividerEl.style.display = "block";
