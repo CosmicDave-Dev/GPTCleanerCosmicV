@@ -645,3 +645,69 @@ body.exporting .status-text {
     flex-wrap: wrap;
   }
 }
+
+
+.save-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 6, 12, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.save-dialog {
+  width: min(520px, 100%);
+  padding: 18px;
+  border: 1px solid var(--grid);
+  border-radius: 14px;
+  background: #0f1724;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.save-dialog-title {
+  margin-bottom: 10px;
+  color: var(--cyan);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.save-dialog-note {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.save-dialog-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.save-dialog-input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--grid);
+  border-radius: 9px;
+  background: #0a111c;
+  color: var(--text);
+  font: inherit;
+}
+
+.save-dialog-input:focus {
+  outline: 1px solid var(--cyan);
+  border-color: var(--cyan);
+}
+
+.save-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
