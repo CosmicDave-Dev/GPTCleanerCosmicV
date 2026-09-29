@@ -78,6 +78,20 @@ try {
 
 
   await page.locator('[data-tab="cleanup"]').click();
+
+  assert.equal(
+    await page.locator(".control-info-btn").count(),
+    6,
+    "Cleanup should expose six info buttons"
+  );
+
+  await page.locator('.control-info-btn[data-help-title="Edge crunch"]').click();
+  await page.waitForFunction(
+    () => document.querySelector("#statusText")?.textContent?.includes("Edge crunch:"),
+    null,
+    { timeout: 5000 }
+  );
+
   const edgeSlider = page.locator("#edgeCrunchRange");
   const edgeBox = await edgeSlider.boundingBox();
   assert.ok(edgeBox && edgeBox.height >= 22, "slider hitbox is not thumb-height");
