@@ -1,0 +1,531 @@
+COSMICV EDGECRUNCH DARKROOM
+CLEANING GUIDE
+================
+
+Applies to the current CosmicV EdgeCrunch Darkroom cleanup controls in the
+Windows app and Web app.
+
+CosmicV is original software and completely free - just like you!
+Created at Cosmic Dave Studios.
+Development assistance: ChatGPT by OpenAI.
+
+
+WHAT EDGECRUNCH IS TRYING TO DO
+-------------------------------
+
+AI-generated images often contain tiny defects that are difficult to notice
+individually but make the whole image feel "off": broken hair strands, tiny
+bright or dark flecks, doubled contours, crunchy edges, short false lines,
+shimmering texture, and dense little edge fragments.
+
+EdgeCrunch does not simply blur the whole image.
+
+It first looks for places that behave more like fragmented image-generator
+artifacts than useful large-scale structure. It analyzes local brightness
+changes, edge strength, high-frequency detail, edge direction, neighborhood
+density, and how coherent an edge is across an area.
+
+The current web engine uses:
+
+  - Sobel gradients to measure directional edge strength.
+  - A Laplacian-style high-frequency map to find fine rapid changes.
+  - A structure tensor to estimate edge coherence.
+  - A local density map to find clusters of fragmented micro-edges.
+  - Structure protection to reduce cleanup on long coherent edges.
+  - A flat-texture path for noisy texture that does not look like a strong edge.
+  - Gaussian reconstruction to rebuild targeted areas from nearby pixels.
+  - A small morphology pass to reduce tiny bright and dark specks.
+
+The important part is that all six Cleanup controls work together. No single
+slider is "the amount of cleanup." Each one changes a different part of the
+detector or reconstruction.
+
+
+QUICK START
+-----------
+
+1. Start with BALANCED.
+2. Drag the cyan Before/After divider across important areas.
+3. Check faces, eyes, hair, text, jewelry, architecture, and fine textures.
+4. Turn on TARGET MASK if you want to see where EdgeCrunch is aiming.
+5. If artifacts remain, increase cleanup gradually.
+6. If real detail begins to soften, back off or increase Structure Protection.
+7. Save when the preview looks right. The Web version returns to the original
+   source image for full-resolution export.
+
+Change one thing at a time when learning the controls. The six sliders interact,
+so moving several at once can make it difficult to know which change helped.
+
+
+THE SIX CLEANUP CONTROLS
+========================
+
+
+1. EDGE CRUNCH
+--------------
+
+Plain-English meaning:
+How strongly CosmicV rebuilds the areas that the detector has already decided
+look suspicious.
+
+This is the closest thing to a main "strength" control, but it only acts strongly
+where the cleanup mask says it should.
+
+Under the hood:
+EdgeCrunch creates a cleanup mask from micro-edge, density, coherence, texture,
+and protection signals. Edge Crunch multiplies the strength of that mask when
+the original pixels are blended toward a locally reconstructed version.
+
+In the current web engine, the reconstruction amount is based on:
+
+  Edge Crunch x cleanup mask x 1.60
+
+and is capped so EdgeCrunch never replaces 100% of a targeted pixel with the
+reconstructed result.
+
+Move it UP when:
+  - Broken little contours are still obvious.
+  - Hair or fur contains short crunchy fragments.
+  - AI-generated edges still look electrically sharp or doubled.
+  - The Target Mask looks correct, but the cleanup is too timid.
+
+Move it DOWN when:
+  - Useful fine texture is becoming too soft.
+  - Eyes, eyelashes, jewelry, text, or fine lines lose character.
+  - The image starts looking cosmetically smoothed.
+  - You like where the detector is aiming but not how hard it is acting.
+
+Think of it as:
+"The detector found the dirt. How hard should we scrub?"
+
+
+2. FRAGMENT SENSITIVITY
+-----------------------
+
+Plain-English meaning:
+How easily a field of tiny broken edges qualifies as suspicious.
+
+This changes WHAT EdgeCrunch is willing to call an artifact, not merely how hard
+it cleans.
+
+Under the hood:
+The engine creates candidate "seed" pixels from medium-strength and
+high-frequency edge information. Fragment Sensitivity lowers or raises the
+threshold that allows those seeds into the detector. It also changes how much
+the system favors locally incoherent edges.
+
+Higher sensitivity means more dense/noisy micro-contour fields can qualify for
+cleanup.
+
+Move it UP when:
+  - The image has lots of tiny broken hair, foliage, fabric, pores, or scale-like
+    patterns that should not really be there.
+  - Target Mask is missing obvious artifact clusters.
+  - Cleanup seems limited to only the most obvious defects.
+
+Move it DOWN when:
+  - Legitimate texture is being mistaken for noise.
+  - Fine illustration strokes, cloth weave, eyelashes, engraving, or deliberate
+    grain are getting targeted.
+  - The Target Mask lights up too much of the image.
+
+Important:
+The presets are recipes, not a simple weak-to-strong ladder for every slider.
+For example, Aggressive can use a lower Fragment Sensitivity than Balanced while
+still being much stronger overall because Edge Crunch, Base Cleanup, Crunch
+Radius, and Structure Protection are all different.
+
+Think of it as:
+"How suspicious should CosmicV be of swarms of tiny broken edges?"
+
+
+3. STRUCTURE PROTECTION
+-----------------------
+
+Plain-English meaning:
+How strongly CosmicV protects long, coherent, probably-real edges.
+
+This is the main "leave the important stuff alone" control.
+
+Under the hood:
+The structure tensor estimates whether local edges point in a consistent
+direction. Long facial outlines, letters, building edges, clean illustration
+strokes, and strong object boundaries tend to be more coherent than fragmented
+artifact chatter.
+
+Structure Protection reduces the cleanup mask where coherence is high.
+
+Move it UP when:
+  - Faces, eyes, lips, text, architecture, or clean line art are softening.
+  - Straight lines or strong contours are being touched.
+  - The Target Mask is reaching into meaningful object boundaries.
+  - You want safer cleanup.
+
+Move it DOWN when:
+  - The artifact itself forms a fairly coherent line and is escaping cleanup.
+  - Strong false outlines or doubled contours remain.
+  - You deliberately want a more forceful pass over structured areas.
+
+Very high Structure Protection is excellent insurance for portraits, text, logos,
+architecture, and graphic design.
+
+Very low Structure Protection is powerful, but it removes one of EdgeCrunch's
+main safety rails.
+
+Think of it as:
+"If an edge looks intentional and organized, how strongly should we defend it?"
+
+
+4. CRUNCH RADIUS
+----------------
+
+Plain-English meaning:
+How wide a neighborhood CosmicV uses when rebuilding a targeted artifact.
+
+This is NOT simply another strength slider. It changes the scale of the
+reconstruction.
+
+Under the hood:
+The current web engine Gaussian-blurs the red, green, and blue channels using
+Crunch Radius as the Gaussian sigma. Targeted pixels are blended toward that
+local reconstruction.
+
+A larger radius gathers information from a wider neighborhood. A smaller radius
+stays more local.
+
+Move it UP when:
+  - Artifacts are physically wider than tiny single-pixel chatter.
+  - Broken contours occupy several pixels.
+  - The cleanup needs to bridge a slightly broader defect.
+  - A low radius is cleaning specks but leaving chunky artifact shapes.
+
+Move it DOWN when:
+  - Fine detail looks smeared.
+  - Small features are bleeding into nearby colors.
+  - You only need to attack tiny edge fragments.
+  - The image contains very delicate texture.
+
+Crunch Radius has a strong relationship with Edge Crunch:
+  - High Edge Crunch + small radius = strong but tightly localized cleanup.
+  - High Edge Crunch + large radius = broad, forceful reconstruction.
+  - Low Edge Crunch + large radius = broader but gentler blending.
+
+Think of it as:
+"How far around the damaged pixel should CosmicV look for replacement texture?"
+
+
+5. BASE CLEANUP
+---------------
+
+Plain-English meaning:
+Adds a second cleanup path for noisy high-frequency texture that may not look
+like a classic broken edge.
+
+This is useful when the image is covered in general AI-generated "crunch" rather
+than isolated contour defects.
+
+Under the hood:
+EdgeCrunch calculates a flat-texture signal from high-frequency detail while
+reducing the influence of stronger structure. Base Cleanup can raise the cleanup
+mask in those areas even when the fragmented-edge detector is not strongly
+activated.
+
+The final detector uses whichever is stronger at a pixel:
+  - the fragmented-edge path, or
+  - Base Cleanup multiplied by the flat-texture signal.
+
+Move it UP when:
+  - Large regions have gritty, sparkling, artificial texture.
+  - Skin, skies, walls, fabric, or backgrounds have pervasive high-frequency
+    noise.
+  - Target Mask is too sparse even though the whole texture feels crunchy.
+  - The image needs broader cleanup rather than only defect-by-defect repair.
+
+Move it DOWN when:
+  - Natural texture is getting polished away.
+  - Skin becomes plastic.
+  - Painterly brushwork, grain, fur, or fabric loses character.
+  - You only want surgical cleanup of obvious edge artifacts.
+
+Base Cleanup is one of the biggest differences between a surgical pass and a
+general cleanup pass.
+
+Think of it as:
+"Even where I cannot point to one broken edge, how much general crunchy texture
+should CosmicV clean?"
+
+
+6. SPECK THRESHOLD
+------------------
+
+Plain-English meaning:
+How obvious a tiny bright or dark speck must be before the speck cleaner touches
+it.
+
+This control works in the opposite intuitive direction from some "strength"
+sliders:
+
+  LOWER threshold = catches subtler specks.
+  HIGHER threshold = ignores subtle differences and only catches stronger specks.
+
+Under the hood:
+The web engine performs small 3x3 opening and closing operations on luminance.
+Those operations help identify tiny bright and dark deviations from their local
+neighborhood.
+
+Speck Threshold sets the beginning of the brightness-difference range that can
+be treated as a speck. The speck pass is still gated by the main cleanup mask
+and Edge Crunch strength, so it is not a blind whole-image dust remover.
+
+Move it DOWN when:
+  - Tiny faint white or black flecks remain.
+  - Hair, skin, sky, or smooth surfaces contain subtle pepper-like noise.
+  - The defects are visible but not very bright or dark.
+
+Move it UP when:
+  - Legitimate tiny highlights are being softened.
+  - Eye catchlights, glitter, jewelry sparkle, stars, pores, or texture are being
+    mistaken for specks.
+  - You only want to remove the strongest isolated flecks.
+
+Think of it as:
+"How different from its neighbors does a tiny dot need to be before we call it a
+speck?"
+
+
+TARGET MASK
+===========
+
+Target Mask is a diagnostic view. It is not baked into the saved image.
+
+Brighter red/magenta regions are receiving more EdgeCrunch attention.
+
+Use it to answer two different questions:
+
+1. Is CosmicV aiming at the right places?
+2. Is CosmicV cleaning those places by the right amount?
+
+If the mask is WRONG:
+Adjust Fragment Sensitivity, Structure Protection, Base Cleanup, or Speck
+Threshold.
+
+If the mask is RIGHT but the result is too weak or too strong:
+Adjust Edge Crunch and, when appropriate, Crunch Radius.
+
+This distinction is extremely useful. It separates detector problems from
+reconstruction-strength problems.
+
+
+THE PRESETS
+===========
+
+CONSERVATIVE
+  Edge Crunch:          25
+  Fragment Sensitivity: 45
+  Structure Protection: 95
+  Crunch Radius:        0.65
+  Base Cleanup:         8
+  Speck Threshold:      8
+
+Use when:
+You want maximum protection of meaningful structure and only mild cleanup.
+
+
+BALANCED
+  Edge Crunch:          55
+  Fragment Sensitivity: 65
+  Structure Protection: 90
+  Crunch Radius:        0.80
+  Base Cleanup:         15
+  Speck Threshold:      10
+
+Use when:
+You do not yet know what the image needs. This is the recommended starting point.
+
+
+STRONG
+  Edge Crunch:          75
+  Fragment Sensitivity: 64
+  Structure Protection: 68
+  Crunch Radius:        1.05
+  Base Cleanup:         52
+  Speck Threshold:      14
+
+Use when:
+The image has persistent crunchy texture and obvious artifact fields that
+Balanced leaves behind.
+
+
+AGGRESSIVE
+  Edge Crunch:          100
+  Fragment Sensitivity: 53
+  Structure Protection: 38
+  Crunch Radius:        1.23
+  Base Cleanup:         91
+  Speck Threshold:      19
+
+Use when:
+The source is heavily contaminated and you are willing to trade some preservation
+for a hard cleanup pass.
+
+Aggressive should be inspected carefully around faces, text, eyes, hair, jewelry,
+architecture, and deliberate fine texture.
+
+
+PRACTICAL TUNING RECIPES
+========================
+
+PORTRAIT / FACE
+---------------
+Start: Balanced.
+
+Priorities:
+  - Keep Structure Protection high.
+  - Increase Edge Crunch slowly.
+  - Keep Crunch Radius modest.
+  - Lower Speck Threshold only if faint flecks are truly defects.
+
+If skin starts looking plastic:
+Lower Base Cleanup first.
+
+If eyelashes or lips soften:
+Raise Structure Protection or lower Edge Crunch.
+
+
+HAIR / FUR / FEATHERS
+---------------------
+Start: Balanced.
+
+If false little strands and broken micro-lines remain:
+Raise Fragment Sensitivity gradually.
+
+If real strands disappear:
+Raise Structure Protection.
+
+If the whole region is gritty:
+Raise Base Cleanup a little rather than immediately maxing Edge Crunch.
+
+
+TEXT / LOGOS / ARCHITECTURE
+---------------------------
+Start: Conservative or Balanced.
+
+Priorities:
+  - Structure Protection near the high end.
+  - Small Crunch Radius.
+  - Moderate Edge Crunch.
+
+These images often contain legitimate hard edges that resemble the kinds of
+signals an artifact cleaner is hunting.
+
+Use Target Mask before making a strong pass.
+
+
+GENERAL CRUNCHY AI TEXTURE
+--------------------------
+Start: Balanced.
+
+Try:
+  - Raise Base Cleanup.
+  - Then raise Edge Crunch if necessary.
+  - Keep Structure Protection high enough to defend useful forms.
+
+This is often better than simply maxing Fragment Sensitivity.
+
+
+TINY BRIGHT / DARK FLECKS
+-------------------------
+Start: Balanced.
+
+Try:
+  - Lower Speck Threshold gradually.
+  - Keep an eye on stars, glitter, eye highlights, jewelry, and deliberate grain.
+  - Raise Edge Crunch slightly only if the speck pass needs more authority.
+
+
+HEAVILY DAMAGED IMAGE
+---------------------
+Start: Strong.
+
+If the damage still dominates:
+Try Aggressive, then pull individual controls back rather than immediately
+accepting every Aggressive setting.
+
+A good strategy:
+  1. Aggressive.
+  2. Raise Structure Protection.
+  3. Reduce Base Cleanup until real texture returns.
+  4. Reduce Crunch Radius if small details smear.
+  5. Compare against the original repeatedly.
+
+
+TROUBLESHOOTING
+===============
+
+"THE IMAGE LOOKS TOO SMOOTH"
+  - Lower Base Cleanup.
+  - Lower Edge Crunch.
+  - Reduce Crunch Radius.
+  - Raise Structure Protection.
+
+"IT IS MISSING OBVIOUS BROKEN ARTIFACTS"
+  - Raise Fragment Sensitivity.
+  - Lower Structure Protection slightly if the artifact is line-like.
+  - Raise Edge Crunch if the Target Mask already covers the artifact.
+
+"REAL EDGES ARE GETTING DAMAGED"
+  - Raise Structure Protection.
+  - Lower Edge Crunch.
+  - Reduce Crunch Radius.
+  - Check Target Mask to see whether the detector is aiming at those edges.
+
+"LOTS OF NOISY TEXTURE REMAINS"
+  - Raise Base Cleanup.
+  - Raise Edge Crunch moderately.
+  - Use Strong as a reference point.
+
+"FAINT SPECKS REMAIN"
+  - Lower Speck Threshold.
+
+"GOOD SPARKLES / HIGHLIGHTS ARE DISAPPEARING"
+  - Raise Speck Threshold.
+  - Raise Structure Protection if they sit on meaningful edges.
+
+"THE TARGET MASK LOOKS GOOD, BUT THE CLEANUP IS WEAK"
+  - Raise Edge Crunch.
+  - Consider a slightly larger Crunch Radius for wider defects.
+
+"THE TARGET MASK IS EVERYWHERE"
+  - Lower Fragment Sensitivity.
+  - Lower Base Cleanup.
+  - Raise Structure Protection.
+
+
+A NOTE ABOUT "RESTORING DETAIL"
+===============================
+
+EdgeCrunch is not inventing a hidden perfect original image.
+
+Its cleanup is reconstructive: it uses nearby image information to replace or
+soften patterns that the detector identifies as likely artifacts. A successful
+pass can make real structure LOOK clearer because distracting false detail has
+been reduced, but the system cannot recover information that was never present
+in the source.
+
+That distinction matters when tuning. The goal is not maximum cleanup. The goal
+is the cleanest image that still preserves the detail you actually want.
+
+
+THE ONE RULE
+============
+
+Do not judge EdgeCrunch by how far the sliders moved.
+
+Judge it by the Before/After divider.
+
+If the cleaned side looks better and the meaningful structure survived, the
+settings are correct for that image.
+
+
+CosmicV EdgeCrunch Darkroom
+Cosmic Dave Studios
