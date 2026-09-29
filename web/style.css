@@ -378,7 +378,48 @@ button, a { font: inherit; }
 
 input[type="range"] {
   width: 100%;
-  accent-color: var(--cyan);
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--grid);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--grid);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 2px solid #dff8ff;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(57, 215, 255, 0.45);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #dff8ff;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(57, 215, 255, 0.45);
 }
 
 .btn:disabled {
@@ -480,6 +521,12 @@ body.processing .viewer-dropzone::after {
 }
 
 .hue-range {
+  background: transparent;
+}
+
+.hue-range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
   background: linear-gradient(
     90deg,
     #ff3b3b 0%,
@@ -490,17 +537,21 @@ body.processing .viewer-dropzone::after {
     #c13bff 83.33%,
     #ff3b3b 100%
   );
-  border-radius: 999px;
-}
-
-.hue-range::-moz-range-track {
-  height: 6px;
-  background: transparent;
 }
 
 .hue-range::-webkit-slider-runnable-track {
   height: 6px;
-  background: transparent;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #ff3b3b 0%,
+    #ffd23b 16.66%,
+    #52ff3b 33.33%,
+    #3bfff2 50%,
+    #3b63ff 66.66%,
+    #c13bff 83.33%,
+    #ff3b3b 100%
+  );
 }
 
 .sidebar {
