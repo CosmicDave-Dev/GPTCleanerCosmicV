@@ -367,6 +367,37 @@ button, a { font: inherit; }
   gap: 8px;
 }
 
+.control-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.control-info-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cyan);
+  cursor: help;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.control-info-btn:hover,
+.control-info-btn:focus-visible {
+  outline: none;
+  background: rgba(57, 215, 255, 0.1);
+  color: #dff8ff;
+  box-shadow: 0 0 0 1px rgba(57, 215, 255, 0.3);
+}
+
 .number-input {
   width: 68px;
   padding: 6px 7px;
