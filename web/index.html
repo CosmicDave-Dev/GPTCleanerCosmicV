@@ -13,10 +13,17 @@
       <div class="brand-block">
         <div class="brand-title">♠ COSMICV EDGECRUNCH DARKROOM WEB</div>
         <div class="brand-subtitle">
-          Web Preview 0.4.2 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
+          Web V1.0 · CosmicV is original software and completely free - just like you! · Created at Cosmic Dave Studios.
         </div>
       </div>
       <div class="topbar-actions">
+        <a
+          class="top-link"
+          href="https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+        >Current Version ↗</a>
+        <button id="topOpenBtn" class="top-action-btn" type="button">Open Image</button>
         <div class="save-menu-wrap">
           <button id="saveBtn" class="top-action-btn" type="button">Save</button>
           <button id="saveAsBtn" class="top-action-btn top-action-accent" type="button">Save As</button>
@@ -26,12 +33,9 @@
             <button class="save-format-btn" type="button" data-format="webp">WebP</button>
           </div>
         </div>
-        <a
-          class="top-link"
-          href="https://github.com/CosmicDave-Dev/GPTCleanerCosmicV/releases/latest"
-          target="_blank"
-          rel="noreferrer"
-        >Current Version ↗</a>
+        <button id="topTargetMaskBtn" class="top-action-btn" type="button" aria-pressed="false">Target Mask</button>
+        <button id="infoBtn" class="top-action-btn top-icon-btn" type="button" aria-label="About CosmicV">ⓘ</button>
+        <button id="fullscreenBtn" class="top-action-btn" type="button">F11 Fullscreen</button>
       </div>
     </header>
 
@@ -97,27 +101,27 @@
             <div class="panel-title">CLEANUP</div>
             <div class="panel-body">
               <label class="control">
-                <div class="control-head"><span>Edge crunch</span><input id="edgeCrunchValue" class="number-input" type="number" min="0" max="100" step="1" value="55"></div>
+                <div class="control-head"><span class="control-label-wrap"><span>Edge crunch</span><button class="control-info-btn" type="button" aria-label="About Edge crunch" title="How strongly CosmicV rebuilds tiny broken edges it thinks are artifacts. Higher means stronger cleanup." data-help-title="Edge crunch" data-help="How strongly CosmicV rebuilds tiny broken edges it thinks are artifacts. Higher means stronger cleanup.">ⓘ</button></span><input id="edgeCrunchValue" class="number-input" type="number" min="0" max="100" step="1" value="55"></div>
                 <input id="edgeCrunchRange" type="range" min="0" max="100" step="1" value="55">
               </label>
               <label class="control">
-                <div class="control-head"><span>Fragment sensitivity</span><input id="fragmentValue" class="number-input" type="number" min="0" max="100" step="1" value="65"></div>
+                <div class="control-head"><span class="control-label-wrap"><span>Fragment sensitivity</span><button class="control-info-btn" type="button" aria-label="About Fragment sensitivity" title="How easily busy, broken micro-edge patterns qualify as artifacts. Higher lets CosmicV target more of them." data-help-title="Fragment sensitivity" data-help="How easily busy, broken micro-edge patterns qualify as artifacts. Higher lets CosmicV target more of them.">ⓘ</button></span><input id="fragmentValue" class="number-input" type="number" min="0" max="100" step="1" value="65"></div>
                 <input id="fragmentRange" type="range" min="0" max="100" step="1" value="65">
               </label>
               <label class="control">
-                <div class="control-head"><span>Structure protection</span><input id="protectValue" class="number-input" type="number" min="0" max="100" step="1" value="90"></div>
+                <div class="control-head"><span class="control-label-wrap"><span>Structure protection</span><button class="control-info-btn" type="button" aria-label="About Structure protection" title="How strongly real long edges are protected, such as faces, text and architecture. Higher preserves more structure." data-help-title="Structure protection" data-help="How strongly real long edges are protected, such as faces, text and architecture. Higher preserves more structure.">ⓘ</button></span><input id="protectValue" class="number-input" type="number" min="0" max="100" step="1" value="90"></div>
                 <input id="protectRange" type="range" min="0" max="100" step="1" value="90">
               </label>
               <label class="control">
-                <div class="control-head"><span>Crunch radius</span><input id="radiusValue" class="number-input" type="number" min="0.35" max="2.5" step="0.01" value="0.80"></div>
+                <div class="control-head"><span class="control-label-wrap"><span>Crunch radius</span><button class="control-info-btn" type="button" aria-label="About Crunch radius" title="How wide an area around a targeted artifact is reconstructed. Larger values blend a broader neighborhood." data-help-title="Crunch radius" data-help="How wide an area around a targeted artifact is reconstructed. Larger values blend a broader neighborhood.">ⓘ</button></span><input id="radiusValue" class="number-input" type="number" min="0.35" max="2.5" step="0.01" value="0.80"></div>
                 <input id="radiusRange" type="range" min="0.35" max="2.5" step="0.01" value="0.80">
               </label>
               <label class="control">
-                <div class="control-head"><span>Base cleanup</span><input id="baseValue" class="number-input" type="number" min="0" max="100" step="1" value="15"></div>
+                <div class="control-head"><span class="control-label-wrap"><span>Base cleanup</span><button class="control-info-btn" type="button" aria-label="About Base cleanup" title="Adds cleanup to noisy high-frequency texture even when it is not dominated by obvious broken edges." data-help-title="Base cleanup" data-help="Adds cleanup to noisy high-frequency texture even when it is not dominated by obvious broken edges. Higher means more general texture cleanup.">ⓘ</button></span><input id="baseValue" class="number-input" type="number" min="0" max="100" step="1" value="15"></div>
                 <input id="baseRange" type="range" min="0" max="100" step="1" value="15">
               </label>
               <label class="control">
-                <div class="control-head"><span>Speck threshold</span><input id="speckValue" class="number-input" type="number" min="1" max="40" step="1" value="10"></div>
+                <div class="control-head"><span class="control-label-wrap"><span>Speck threshold</span><button class="control-info-btn" type="button" aria-label="About Speck threshold" title="Sets how faint a tiny bright or dark speck can be before CosmicV targets it. Lower catches subtler specks." data-help-title="Speck threshold" data-help="Sets how faint a tiny bright or dark speck can be before CosmicV targets it. Lower catches subtler specks; higher only touches stronger ones.">ⓘ</button></span><input id="speckValue" class="number-input" type="number" min="1" max="40" step="1" value="10"></div>
                 <input id="speckRange" type="range" min="1" max="40" step="1" value="10">
               </label>
               <button id="resetCleanupBtn" class="btn">Reset Cleanup to Balanced</button>

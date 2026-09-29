@@ -4,7 +4,7 @@ Browser-side companion to **CosmicV EdgeCrunch Darkroom V1.4**.
 
 The shipped Windows EXE remains a separate first-class build. The web edition is its browser sidekick and does not replace it.
 
-## Web Preview 0.4.1
+## Web V1.0
 
 Implemented:
 
@@ -40,7 +40,7 @@ Implemented:
 - original-resolution tiled export with progress reporting
 - Current Version link
 
-The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server. Web Preview 0.4.1 keeps the interactive preview capped at 1024px for responsiveness, while Save PNG / JPEG / WebP reprocess the original-resolution image in overlapped background-worker tiles before applying the selected Darkroom and Transform settings.
+The EdgeCrunch processing runs in the browser. Images are not uploaded to a CosmicV server. Web V1.0 keeps the interactive preview capped at 1024px for responsiveness, while Save PNG / JPEG / WebP reprocess the original-resolution image in overlapped background-worker tiles before applying the selected Darkroom and Transform settings.
 
 ## Local test
 

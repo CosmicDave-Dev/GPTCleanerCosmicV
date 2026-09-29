@@ -38,16 +38,25 @@ try {
 
   await page.waitForSelector(".brand-title");
   const subtitle = await page.locator(".brand-subtitle").textContent();
-  assert.match(subtitle || "", /Web Preview 0\.4\.2/);
+  assert.match(subtitle || "", /Web V1\.0/);
 
   const dividerWidth = await page.locator("#divider").evaluate(
     (element) => parseFloat(getComputedStyle(element).width)
   );
   assert.ok(dividerWidth >= 12, `divider hitbox too narrow: ${dividerWidth}px`);
 
+  assert.equal(await page.locator("#topOpenBtn").count(), 1);
   assert.equal(await page.locator("#saveBtn").count(), 1);
   assert.equal(await page.locator("#saveAsBtn").count(), 1);
+  assert.equal(await page.locator("#topTargetMaskBtn").count(), 1);
+  assert.equal(await page.locator("#infoBtn").count(), 1);
+  assert.equal(await page.locator("#fullscreenBtn").count(), 1);
   assert.equal(await page.locator("#savePngBtn").count(), 0);
+
+  assert.equal(
+    (await page.locator("#fullscreenBtn").textContent())?.trim(),
+    "F11 Fullscreen"
+  );
 
 
   const sidebarOrder = await page.evaluate(() => {
@@ -66,6 +75,41 @@ try {
 
   assert.equal(sidebarOrder.hasTopStatus, true);
   assert.equal(sidebarOrder.statusBeforeTabs, true);
+
+
+  await page.locator('[data-tab="cleanup"]').click();
+
+  assert.equal(
+    await page.locator(".control-info-btn").count(),
+    6,
+    "Cleanup should expose six info buttons"
+  );
+
+  await page.locator('.control-info-btn[data-help-title="Edge crunch"]').click();
+  await page.waitForFunction(
+    () => document.querySelector("#statusText")?.textContent?.includes("Edge crunch:"),
+    null,
+    { timeout: 5000 }
+  );
+
+  const edgeSlider = page.locator("#edgeCrunchRange");
+  const edgeBox = await edgeSlider.boundingBox();
+  assert.ok(edgeBox && edgeBox.height >= 22, "slider hitbox is not thumb-height");
+
+  const beforeSliderValue = Number(await edgeSlider.inputValue());
+  await page.mouse.click(
+    edgeBox.x + edgeBox.width * 0.82,
+    edgeBox.y + 2
+  );
+  const afterSliderValue = Number(await edgeSlider.inputValue());
+
+  assert.notEqual(
+    afterSliderValue,
+    beforeSliderValue,
+    "clicking near the top edge of the slider hitbox did not change the value"
+  );
+
+  await page.locator('[data-tab="quick"]').click();
 
   await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
@@ -122,6 +166,28 @@ try {
     { timeout: 120000 }
   );
 
+  await page.locator("#topTargetMaskBtn").click();
+  assert.equal(
+    await page.locator("#topTargetMaskBtn").getAttribute("aria-pressed"),
+    "true"
+  );
+  assert.equal(
+    await page.locator("#targetMaskBtn").getAttribute("aria-pressed"),
+    "true"
+  );
+  await page.locator("#topTargetMaskBtn").click();
+  assert.equal(
+    await page.locator("#topTargetMaskBtn").getAttribute("aria-pressed"),
+    "false"
+  );
+
+  await page.locator("#infoBtn").click();
+  await page.waitForFunction(
+    () => document.querySelector("#statusText")?.textContent?.includes("local browser processing"),
+    null,
+    { timeout: 5000 }
+  );
+
   await page.locator('[data-tab="color"]').click();
   await page.locator("#brightnessRange").evaluate((element) => {
     element.value = "18";
@@ -168,7 +234,7 @@ try {
   assert.deepEqual(pageErrors, []);
 
   console.log(
-    `CosmicV Web smoke test passed in ${browserName}: EdgeCrunch + tabs + full-res export.`
+    `CosmicV Web smoke test passed in ${browserName}: command bar + EdgeCrunch + tabs + full-res export.`
   );
 } finally {
   await browser.close();
