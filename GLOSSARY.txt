@@ -1,0 +1,931 @@
+COSMICV EDGECRUNCH DARKROOM
+GLOSSARY
+========
+
+A plain-English glossary for the image-processing terms used in CosmicV
+EdgeCrunch Darkroom and its Cleaning Guide.
+
+CosmicV is original software and completely free - just like you!
+Created at Cosmic Dave Studios.
+Development assistance: ChatGPT by OpenAI.
+
+
+ARTIFACT
+--------
+
+An unwanted visual feature introduced by image generation, compression,
+resizing, sharpening, denoising, or some other processing step.
+
+Examples:
+  - tiny false lines
+  - doubled contours
+  - bright or dark flecks
+  - crunchy hair strands
+  - shimmering textures
+  - strange repeated micro-patterns
+
+In CosmicV:
+Artifacts are what EdgeCrunch is trying to identify and reduce without
+destroying legitimate image structure.
+
+
+BASE CLEANUP
+------------
+
+A broader cleanup path for high-frequency texture that does not necessarily
+look like a classic broken edge.
+
+In CosmicV:
+Base Cleanup lets noisy, gritty, sparkling texture receive some cleanup even
+when the fragmented-edge detector is not strongly activated.
+
+
+BOX BLUR
+--------
+
+A simple local averaging operation.
+
+Each pixel is replaced by the average of nearby pixels inside a square window.
+
+In CosmicV:
+A small box blur is used on candidate artifact "seed" pixels to create a local
+density map. That tells the detector whether suspicious micro-edges are isolated
+or clustered together.
+
+
+CHANNEL
+-------
+
+One component of a color image.
+
+Most normal RGB images have:
+  - Red channel
+  - Green channel
+  - Blue channel
+
+In CosmicV:
+Gaussian reconstruction is performed separately on the red, green, and blue
+channels before the result is blended back into targeted areas.
+
+
+CLEANUP MASK
+------------
+
+A grayscale-like internal map that says how strongly EdgeCrunch should clean
+each pixel.
+
+Think of it as a heat map:
+  - 0 = leave this pixel alone
+  - 1 = this pixel is a strong cleanup candidate
+  - values between = partial cleanup
+
+In CosmicV:
+The cleanup mask combines micro-edge strength, local density, edge coherence,
+structure protection, flat-texture cleanup, and other signals.
+
+The visible Target Mask is a colored diagnostic rendering of this internal idea.
+
+
+COHERENCE
+---------
+
+A measurement of how consistently nearby edges point in the same direction.
+
+High coherence:
+Nearby gradients line up and form an organized edge.
+
+Low coherence:
+Nearby gradients point in many directions and look more chaotic.
+
+In CosmicV:
+Long facial outlines, text strokes, architecture, and clean object boundaries
+often have high coherence. Fragmented AI artifact chatter often has lower
+coherence.
+
+Structure Protection uses coherence to decide what deserves protection.
+
+
+CONTOUR
+-------
+
+A visible line or boundary that defines the shape of an object or region.
+
+Examples:
+  - jawline
+  - edge of a building
+  - outline of a letter
+  - boundary between hair and background
+
+In CosmicV:
+Useful coherent contours should usually be preserved. Broken, doubled, or
+fragmented false contours are common EdgeCrunch targets.
+
+
+CONTOUR CHATTER
+---------------
+
+Lots of tiny false or unstable edge fragments clustered around what should be a
+clean contour.
+
+It can make an image look electrically sharp, crunchy, vibrating, or overdrawn.
+
+In CosmicV:
+Contour chatter is one of the core artifact types EdgeCrunch was designed to
+reduce.
+
+
+CRUNCH
+------
+
+Informal CosmicV shorthand for noisy, brittle, over-detailed, or fragmented
+high-frequency texture.
+
+Examples:
+  - false hair strands
+  - tiny jagged outlines
+  - gritty surface texture
+  - dense speckled micro-detail
+
+In CosmicV:
+"Edge Crunch" means suppressing that unwanted fragmented micro-detail while
+trying to preserve meaningful structure.
+
+
+CRUNCH RADIUS
+-------------
+
+The scale of the local reconstruction used to repair a targeted area.
+
+In CosmicV:
+Crunch Radius is used as the Gaussian sigma for rebuilding local color texture.
+
+Smaller radius:
+More local, more surgical.
+
+Larger radius:
+Uses a wider neighborhood and can repair broader defects, but can also soften
+more detail.
+
+
+DENSITY MAP / LOCAL DENSITY MAP
+-------------------------------
+
+A map showing how concentrated suspicious pixels are in a local neighborhood.
+
+Imagine asking:
+"Are there many suspicious micro-edges near this pixel, or is this one isolated?"
+
+In CosmicV:
+Candidate artifact seed pixels are locally averaged. Dense clusters raise the
+likelihood that the region is artifact chatter rather than one intentional line.
+
+
+DETECTOR
+--------
+
+The part of the algorithm that decides WHERE cleanup should happen.
+
+It does not perform the final repair by itself.
+
+In CosmicV:
+The detector builds the cleanup mask from gradients, high-frequency detail,
+fragment density, coherence, structure protection, and flat-texture signals.
+
+
+DIRECTIONAL EDGE
+----------------
+
+An edge that has an orientation.
+
+For example:
+  - vertical
+  - horizontal
+  - diagonal
+
+In CosmicV:
+The Sobel gradient produces horizontal and vertical components that can be
+combined to estimate edge direction and strength.
+
+
+EDGE
+----
+
+A place where image brightness or color changes rapidly.
+
+Examples:
+  - dark hair against a bright background
+  - black text on white paper
+  - border of a building
+  - eye against skin
+
+Not every edge is good and not every edge is bad.
+
+In CosmicV:
+The challenge is distinguishing meaningful edges from artifact fragments.
+
+
+EDGE CRUNCH
+-----------
+
+The user control that determines how strongly targeted pixels are blended toward
+their reconstructed values.
+
+In CosmicV:
+This is the closest thing to overall cleanup strength, but it only acts strongly
+where the cleanup mask allows it.
+
+
+EDGE MAGNITUDE
+--------------
+
+A number describing how strong an edge is.
+
+Large magnitude:
+Big brightness change.
+
+Small magnitude:
+Little brightness change.
+
+In CosmicV:
+Sobel horizontal and vertical gradients are combined into a magnitude value.
+That helps distinguish flat areas, medium-strength detail, and strong structure.
+
+
+FLAT TEXTURE
+------------
+
+A region with high-frequency texture but without strong large-scale edges.
+
+Examples might include:
+  - noisy skin
+  - gritty walls
+  - artificial fabric texture
+  - sparkling background noise
+
+In CosmicV:
+The Base Cleanup path can target this texture even when the fragmented-edge
+detector is not strongly activated.
+
+
+FRAGMENTED MICRO-EDGE
+---------------------
+
+A very small edge fragment that does not continue cleanly into a stable,
+meaningful contour.
+
+Examples:
+  - tiny false hair segment
+  - one short bright line in skin
+  - broken outline fragments around an object
+  - little zig-zag edge shards
+
+In CosmicV:
+Dense fields of fragmented micro-edges are one of the main signals used to find
+AI-image artifacts.
+
+
+FRAGMENT SENSITIVITY
+--------------------
+
+The user control that changes how easily fragmented micro-edge patterns qualify
+as suspicious.
+
+Higher values:
+More candidate fragments are admitted.
+
+Lower values:
+The detector becomes more selective.
+
+In CosmicV:
+This changes WHERE EdgeCrunch is willing to act, not simply how strongly it acts.
+
+
+FULL-RESOLUTION PROCESSING
+--------------------------
+
+Processing the original image at its actual pixel dimensions rather than only
+processing the smaller preview.
+
+In CosmicV Web:
+The preview is deliberately smaller for responsiveness. When saving, CosmicV
+returns to the original-resolution source and processes that image in tiles.
+
+
+GAUSSIAN BLUR
+-------------
+
+A weighted blur where nearby pixels matter more than distant pixels.
+
+The weights follow a bell-shaped Gaussian curve.
+
+It is generally smoother and more natural than a simple box blur.
+
+In CosmicV:
+Gaussian blur is used as part of reconstruction and mask smoothing.
+
+
+GAUSSIAN KERNEL
+---------------
+
+The set of weights used by a Gaussian blur.
+
+The center receives the strongest weight, and farther pixels receive gradually
+smaller weights.
+
+In CosmicV:
+A 1D Gaussian kernel is applied horizontally and vertically to efficiently
+produce a 2D Gaussian blur.
+
+
+GAUSSIAN RECONSTRUCTION
+-----------------------
+
+CosmicV shorthand for rebuilding a targeted pixel using a locally smoothed
+version of the surrounding image.
+
+In CosmicV:
+The original pixel is blended toward this local reconstruction only where the
+cleanup mask says it should be.
+
+This is why EdgeCrunch is not simply blurring the entire image.
+
+
+GAUSSIAN SIGMA
+--------------
+
+A number that controls the width of a Gaussian blur.
+
+Small sigma:
+Very local smoothing.
+
+Large sigma:
+Broader smoothing.
+
+In CosmicV:
+Crunch Radius is used as the Gaussian sigma during reconstruction.
+
+
+GRADIENT
+--------
+
+A measurement of how quickly image brightness changes from one location to the
+next.
+
+A gradient has:
+  - strength
+  - direction
+
+In CosmicV:
+Gradients are fundamental to finding edges and measuring their organization.
+
+
+HIGH-FREQUENCY DETAIL
+---------------------
+
+Very rapid changes across small distances in an image.
+
+Examples:
+  - fine texture
+  - tiny specks
+  - sharp micro-lines
+  - hair
+  - grain
+  - artifact chatter
+
+"High frequency" does NOT automatically mean "bad."
+
+In CosmicV:
+The algorithm looks for high-frequency detail that behaves like unwanted
+fragmented artifacts while trying to preserve legitimate fine detail.
+
+
+INCOHERENT EDGE
+---------------
+
+An edge pattern whose nearby directions do not line up consistently.
+
+In CosmicV:
+Low coherence is one clue that a region may contain fragmented artifact chatter.
+
+It is only one clue. CosmicV combines it with several other signals.
+
+
+KERNEL
+------
+
+A small pattern of numbers used to examine a pixel and its neighbors.
+
+Image-processing kernels can:
+  - detect edges
+  - blur
+  - sharpen
+  - find local minima or maxima
+  - measure texture
+
+In CosmicV:
+Sobel, Laplacian-style detection, Gaussian blur, and morphology all involve
+different neighborhood operations that function like kernels.
+
+
+LAPLACIAN / LAPLACIAN-STYLE HIGH-FREQUENCY MAP
+----------------------------------------------
+
+A Laplacian measures how strongly a pixel differs from its surrounding
+neighborhood in multiple directions.
+
+It is especially sensitive to rapid local change.
+
+In CosmicV:
+A Laplacian-style 3x3 neighborhood operation creates a high-frequency map.
+Large values indicate strong rapid local changes such as tiny lines, specks, or
+fine texture.
+
+Why "Laplacian-style"?
+The implementation uses a discrete neighborhood formula serving the same
+high-frequency-detection purpose rather than presenting the term as one unique
+continuous mathematical operator.
+
+
+LOCAL NEIGHBORHOOD
+------------------
+
+The pixels immediately surrounding a pixel being analyzed.
+
+In CosmicV:
+Many decisions are local. EdgeCrunch asks what is happening around a pixel
+instead of judging that pixel in isolation.
+
+
+LUMINANCE
+---------
+
+A numerical estimate of perceived brightness.
+
+A color pixel can be converted to luminance using weighted red, green, and blue
+values.
+
+In CosmicV Web:
+Luminance is calculated approximately as:
+
+  0.2126 x Red + 0.7152 x Green + 0.0722 x Blue
+
+Green contributes the most because human vision is especially sensitive to it.
+
+The detector performs much of its edge analysis on luminance rather than on
+three separate color channels.
+
+
+MACRO EDGE / LARGE-SCALE STRUCTURE
+----------------------------------
+
+A strong, meaningful edge that belongs to the main shape of an image.
+
+Examples:
+  - face outline
+  - building boundary
+  - text stroke
+  - major object silhouette
+
+In CosmicV:
+Strong coherent edges receive protection so the cleaner does not treat every
+sharp boundary as an artifact.
+
+
+MASK
+----
+
+A map that controls where an effect is applied.
+
+In general image editing:
+White often means "apply more."
+Black often means "apply less."
+
+In CosmicV:
+The cleanup mask determines how much EdgeCrunch reconstruction is allowed at
+each pixel.
+
+
+MASK SMOOTHING
+--------------
+
+Softening the cleanup mask so cleanup does not switch abruptly from full-on to
+full-off between neighboring pixels.
+
+In CosmicV:
+A small Gaussian blur is applied to the cleanup mask before reconstruction.
+This produces smoother transitions.
+
+
+MEDIUM-STRENGTH EDGE
+--------------------
+
+An edge that is neither nearly flat nor one of the strongest boundaries in the
+image.
+
+In CosmicV:
+Fragmented artifact chatter often lives in this middle zone. The detector gives
+special attention to medium-strength edges while reducing attention on extremely
+strong macro edges.
+
+
+MICRO-CONTOUR
+-------------
+
+A very small contour or line fragment.
+
+In CosmicV:
+Micro-contours may represent useful fine detail or unwanted artifact chatter.
+Fragment Sensitivity, density, coherence, and structure protection help decide
+which is which.
+
+
+MORPHOLOGY / MORPHOLOGICAL PROCESSING
+-------------------------------------
+
+Image-processing operations based on local shapes rather than traditional
+blurring.
+
+Common operations include:
+  - erosion
+  - dilation
+  - opening
+  - closing
+
+In CosmicV:
+A small 3x3 morphology pass helps identify and reduce tiny bright and dark
+specks.
+
+
+OPENING
+-------
+
+A morphology operation that tends to remove small bright details.
+
+Conceptually:
+First shrink bright regions, then regrow the surviving ones.
+
+In CosmicV:
+Opening helps estimate what a tiny bright speck would look like if that speck
+were removed.
+
+
+CLOSING
+-------
+
+A morphology operation that tends to fill or remove small dark details.
+
+Conceptually:
+First expand bright regions, then shrink them back.
+
+In CosmicV:
+Closing helps estimate what a tiny dark speck would look like if that speck
+were removed.
+
+
+3x3 NEIGHBORHOOD
+----------------
+
+A pixel plus the eight pixels immediately around it:
+
+  X X X
+  X P X
+  X X X
+
+P is the pixel being examined.
+
+In CosmicV:
+The speck-cleaning morphology uses small 3x3 neighborhoods to locate tiny local
+bright and dark deviations.
+
+
+PERCENTILE
+----------
+
+A value below which a certain percentage of measurements fall.
+
+Example:
+The 99th percentile is higher than roughly 99% of the sampled values.
+
+In CosmicV:
+Percentiles are used to normalize edge and high-frequency measurements robustly
+without allowing a few extreme values to dominate the scale.
+
+
+PIXEL
+-----
+
+The smallest addressable picture element in a raster image.
+
+A pixel normally stores color information such as red, green, and blue values.
+
+In CosmicV:
+Every cleanup decision eventually becomes a decision about how much to alter
+individual pixels.
+
+
+RECONSTRUCTION
+--------------
+
+Creating a replacement or softened value for a damaged or suspicious region
+using surrounding image information.
+
+In CosmicV:
+Reconstruction does not recover a secret original pixel. It estimates a cleaner
+local value from the image that actually exists.
+
+
+ROBUST NORMALIZATION
+--------------------
+
+Rescaling measurements into a useful common range while reducing the influence
+of extreme outliers.
+
+In CosmicV:
+Gradient and high-frequency measurements are mapped roughly into a 0-to-1 range
+using percentiles rather than simply using the absolute minimum and maximum.
+
+That makes the detector adapt better across very different images.
+
+
+SEED PIXEL
+----------
+
+A pixel that passes an early test and becomes a candidate for further artifact
+analysis.
+
+In CosmicV:
+A pixel becomes a fragmented-edge seed when its micro-detail signal is strong
+enough and it also falls into the useful edge-strength range.
+
+Seed pixels are then examined collectively through the local density map.
+
+
+SMOOTHSTEP
+----------
+
+A mathematical function that smoothly transitions from 0 to 1 between two
+thresholds.
+
+Unlike a hard yes/no cutoff, smoothstep creates a gradual transition.
+
+In CosmicV:
+Smoothstep is used repeatedly so detector signals fade in and out instead of
+producing harsh threshold boundaries.
+
+
+SOBEL FILTER
+------------
+
+A classic edge-detection method that compares neighboring pixels using two small
+3x3 kernels.
+
+One kernel measures horizontal brightness change.
+The other measures vertical brightness change.
+
+In CosmicV:
+Sobel processing produces the horizontal and vertical gradients used for edge
+strength, direction, and structure analysis.
+
+
+SOBEL GRADIENT
+--------------
+
+The edge-change measurement produced by the Sobel filter.
+
+Usually represented by:
+  Gx = horizontal change
+  Gy = vertical change
+
+From these two values we can calculate:
+  - edge magnitude
+  - edge direction
+
+In CosmicV:
+Sobel gradients are one of the first major signals in the EdgeCrunch detector.
+
+
+SPECK
+-----
+
+A tiny bright or dark spot that differs noticeably from nearby pixels.
+
+In CosmicV:
+Specks may be generation artifacts, but legitimate stars, glitter, catchlights,
+pores, and jewelry can look similar. That is why Speck Threshold is adjustable.
+
+
+SPECK THRESHOLD
+---------------
+
+The minimum local brightness difference needed before a tiny bright or dark
+feature begins to qualify for the speck-cleaning pass.
+
+Lower threshold:
+Catches subtler specks.
+
+Higher threshold:
+Only catches stronger specks.
+
+In CosmicV:
+The speck pass is also gated by the cleanup mask and Edge Crunch strength.
+
+
+STRUCTURE
+---------
+
+Organized visual information that probably belongs to the image.
+
+Examples:
+  - object boundaries
+  - facial features
+  - text
+  - architecture
+  - clean illustration strokes
+
+In CosmicV:
+Structure is what EdgeCrunch tries hardest not to damage.
+
+
+STRUCTURE PROTECTION
+--------------------
+
+The user control that reduces cleanup on organized, coherent edges.
+
+Higher values:
+Protect more coherent structure.
+
+Lower values:
+Allow stronger cleanup across structured regions.
+
+In CosmicV:
+It acts as one of the main safety rails preventing legitimate edges from being
+treated like artifact chatter.
+
+
+STRUCTURE TENSOR
+----------------
+
+A mathematical way to summarize the directions and strengths of gradients in a
+local area.
+
+It can answer questions such as:
+  - Do nearby edges mostly point the same way?
+  - Is this region strongly directional?
+  - Is this region chaotic?
+
+In CosmicV:
+The structure tensor is built from smoothed combinations of:
+  - Gx squared
+  - Gy squared
+  - Gx times Gy
+
+Those values are used to calculate edge coherence.
+
+
+TARGET MASK
+-----------
+
+The visible diagnostic version of the cleanup mask.
+
+In CosmicV:
+Red and magenta areas indicate where EdgeCrunch is applying more cleanup.
+
+It is for inspection only and is not baked into the saved image.
+
+
+TEXTURE
+-------
+
+Small-scale visual variation across a surface.
+
+Examples:
+  - skin pores
+  - cloth weave
+  - fur
+  - grain
+  - stone
+  - paint strokes
+
+In CosmicV:
+Texture is tricky because legitimate texture and AI-generated artifact texture
+can produce similar signals. Base Cleanup and Structure Protection help control
+that tradeoff.
+
+
+THRESHOLD
+---------
+
+A numerical boundary used to decide when a signal becomes important.
+
+Hard threshold:
+Below = no
+Above = yes
+
+Soft threshold:
+The effect gradually increases across a range.
+
+In CosmicV:
+Several detector signals use soft thresholds so cleanup behaves gradually rather
+than snapping abruptly between untouched and fully targeted.
+
+
+TILE / TILED PROCESSING
+-----------------------
+
+Breaking a large image into smaller rectangular pieces and processing them one
+at a time.
+
+In CosmicV Web:
+Full-resolution exports use tiles so very large images do not require one giant
+processing operation in browser memory.
+
+
+TILE OVERLAP
+------------
+
+Extra pixels included around the edge of each processing tile.
+
+In CosmicV Web:
+Neighboring tiles overlap so filters near a tile boundary can still see nearby
+pixels. Only the safe center portion is stitched into the final image.
+
+This helps prevent visible seams between tiles.
+
+
+TYPED ARRAY
+-----------
+
+A JavaScript data structure designed for efficiently storing large blocks of
+numeric values.
+
+Examples:
+  - Float32Array
+  - Uint8ClampedArray
+
+In CosmicV Web:
+Typed arrays hold image channels, gradients, masks, and output pixels efficiently
+inside the browser.
+
+
+UINT8CLAMPEDARRAY
+-----------------
+
+A JavaScript typed array that stores integers from 0 to 255.
+
+Values outside that range are automatically clamped.
+
+In CosmicV Web:
+Browser image pixels are naturally represented this way because normal 8-bit
+red, green, blue, and alpha channels use values from 0 to 255.
+
+
+WEB WORKER
+----------
+
+A background JavaScript thread separate from the page's main user-interface
+thread.
+
+In CosmicV Web:
+EdgeCrunch processing runs in a Web Worker so heavy pixel calculations do not
+freeze the buttons, sliders, and viewer.
+
+
+WORKER CANCELLATION / STALE REQUEST
+-----------------------------------
+
+A way to stop wasting time on an old preview when the user has already moved a
+slider again.
+
+In CosmicV Web:
+When newer settings arrive, an older in-progress request can be treated as stale
+and abandoned. The worker then moves on to the newest requested settings.
+
+
+WHY ALL THESE TERMS MATTER
+==========================
+
+EdgeCrunch is not one filter.
+
+It is a small decision pipeline:
+
+  1. Read image brightness.
+  2. Measure edges with Sobel gradients.
+  3. Measure rapid fine change with a Laplacian-style map.
+  4. Estimate local edge organization with a structure tensor.
+  5. Identify candidate fragmented micro-edges.
+  6. Measure whether those candidates form dense local fields.
+  7. Protect coherent large-scale structure.
+  8. Add broader flat-texture cleanup where requested.
+  9. Build and smooth a cleanup mask.
+ 10. Reconstruct targeted areas with Gaussian local information.
+ 11. Run a small morphology pass for bright and dark specks.
+ 12. Blend the result back into the image.
+
+The six Cleanup sliders let the user steer different parts of that pipeline.
+
+That is why two images can need very different settings even when both contain
+"AI artifacts."
+
+
+CosmicV EdgeCrunch Darkroom
+Cosmic Dave Studios
