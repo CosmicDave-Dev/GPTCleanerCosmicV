@@ -67,6 +67,27 @@ try {
   assert.equal(sidebarOrder.hasTopStatus, true);
   assert.equal(sidebarOrder.statusBeforeTabs, true);
 
+
+  await page.locator('[data-tab="cleanup"]').click();
+  const edgeSlider = page.locator("#edgeCrunchRange");
+  const edgeBox = await edgeSlider.boundingBox();
+  assert.ok(edgeBox && edgeBox.height >= 22, "slider hitbox is not thumb-height");
+
+  const beforeSliderValue = Number(await edgeSlider.inputValue());
+  await page.mouse.click(
+    edgeBox.x + edgeBox.width * 0.82,
+    edgeBox.y + 2
+  );
+  const afterSliderValue = Number(await edgeSlider.inputValue());
+
+  assert.notEqual(
+    afterSliderValue,
+    beforeSliderValue,
+    "clicking near the top edge of the slider hitbox did not change the value"
+  );
+
+  await page.locator('[data-tab="quick"]').click();
+
   await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
     canvas.width = 96;
