@@ -68,9 +68,11 @@ button, a { font: inherit; }
 }
 
 .topbar-actions {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -645,6 +647,14 @@ body.exporting .status-text {
 .top-action-btn:hover {
   background: var(--panel-3);
   border-color: var(--cyan);
+}
+
+.top-icon-btn {
+  width: 42px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  font-size: 17px;
 }
 
 .top-action-accent {
