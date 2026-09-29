@@ -41,8 +41,8 @@ button, a { font: inherit; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 7px 14px;
   background: linear-gradient(180deg, #121a29, #101726);
   border-bottom: 1px solid var(--grid);
   box-shadow: var(--shadow);
@@ -50,37 +50,42 @@ button, a { font: inherit; }
 
 .brand-block {
   min-width: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
 .brand-subtitle {
-  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .topbar-actions {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
 }
 
 .top-link {
   color: var(--cyan);
   text-decoration: none;
   font-weight: 700;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 10px;
   background: var(--panel-2);
   border: 1px solid var(--grid);
@@ -634,7 +639,7 @@ body.exporting .status-text {
 }
 
 .top-action-btn {
-  padding: 10px 13px;
+  padding: 8px 10px;
   border: 1px solid var(--grid);
   border-radius: 10px;
   background: var(--panel-2);
@@ -650,7 +655,7 @@ body.exporting .status-text {
 }
 
 .top-icon-btn {
-  width: 42px;
+  width: 38px;
   padding-left: 0;
   padding-right: 0;
   text-align: center;
