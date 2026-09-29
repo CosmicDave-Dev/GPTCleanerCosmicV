@@ -530,6 +530,17 @@ for (const [key, control] of Object.entries(cleanupControls)) {
   );
 }
 
+for (const button of document.querySelectorAll(".control-info-btn")) {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const title = button.dataset.helpTitle || "Cleanup control";
+    const help = button.dataset.help || button.title || "";
+    setStatus(statusText, `${title}: ${help}`);
+  });
+}
+
 $("resetCleanupBtn").addEventListener("click", () => {
   applyCleanupSettings(PRESETS.Balanced);
   markPreset("Balanced");
