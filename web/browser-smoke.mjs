@@ -45,9 +45,18 @@ try {
   );
   assert.ok(dividerWidth >= 12, `divider hitbox too narrow: ${dividerWidth}px`);
 
+  assert.equal(await page.locator("#topOpenBtn").count(), 1);
   assert.equal(await page.locator("#saveBtn").count(), 1);
   assert.equal(await page.locator("#saveAsBtn").count(), 1);
+  assert.equal(await page.locator("#topTargetMaskBtn").count(), 1);
+  assert.equal(await page.locator("#infoBtn").count(), 1);
+  assert.equal(await page.locator("#fullscreenBtn").count(), 1);
   assert.equal(await page.locator("#savePngBtn").count(), 0);
+
+  assert.equal(
+    (await page.locator("#fullscreenBtn").textContent())?.trim(),
+    "F11 Fullscreen"
+  );
 
 
   const sidebarOrder = await page.evaluate(() => {
@@ -143,6 +152,28 @@ try {
     { timeout: 120000 }
   );
 
+  await page.locator("#topTargetMaskBtn").click();
+  assert.equal(
+    await page.locator("#topTargetMaskBtn").getAttribute("aria-pressed"),
+    "true"
+  );
+  assert.equal(
+    await page.locator("#targetMaskBtn").getAttribute("aria-pressed"),
+    "true"
+  );
+  await page.locator("#topTargetMaskBtn").click();
+  assert.equal(
+    await page.locator("#topTargetMaskBtn").getAttribute("aria-pressed"),
+    "false"
+  );
+
+  await page.locator("#infoBtn").click();
+  await page.waitForFunction(
+    () => document.querySelector("#statusText")?.textContent?.includes("local browser processing"),
+    null,
+    { timeout: 5000 }
+  );
+
   await page.locator('[data-tab="color"]').click();
   await page.locator("#brightnessRange").evaluate((element) => {
     element.value = "18";
@@ -189,7 +220,7 @@ try {
   assert.deepEqual(pageErrors, []);
 
   console.log(
-    `CosmicV Web smoke test passed in ${browserName}: EdgeCrunch + tabs + full-res export.`
+    `CosmicV Web smoke test passed in ${browserName}: command bar + EdgeCrunch + tabs + full-res export.`
   );
 } finally {
   await browser.close();
