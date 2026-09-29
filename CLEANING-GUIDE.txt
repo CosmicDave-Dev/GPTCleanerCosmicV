@@ -9,6 +9,8 @@ CosmicV is original software and completely free - just like you!
 Created at Cosmic Dave Studios.
 Development assistance: ChatGPT by OpenAI.
 
+Technical terms in this guide are defined in GLOSSARY.txt.
+
 
 WHAT EDGECRUNCH IS TRYING TO DO
 -------------------------------
