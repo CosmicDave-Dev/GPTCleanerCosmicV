@@ -56,10 +56,11 @@ button, a { font: inherit; }
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.04em;
   white-space: nowrap;
+  color: var(--cyan);
 }
 
 .brand-subtitle {
