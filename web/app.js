@@ -19,11 +19,15 @@ const $ = (id) => document.getElementById(id);
 
 const fileInput = $("fileInput");
 const openBtn = $("openBtn");
+const topOpenBtn = $("topOpenBtn");
 const clearBtn = $("clearBtn");
 const fitBtn = $("fitBtn");
 const oneToOneBtn = $("oneToOneBtn");
 const toggleSplitBtn = $("toggleSplitBtn");
 const targetMaskBtn = $("targetMaskBtn");
+const topTargetMaskBtn = $("topTargetMaskBtn");
+const infoBtn = $("infoBtn");
+const fullscreenBtn = $("fullscreenBtn");
 const swapBtn = $("swapBtn");
 const saveBtn = $("saveBtn");
 const saveAsBtn = $("saveAsBtn");
@@ -644,6 +648,7 @@ $("resetTransformBtn").addEventListener("click", () => {
 });
 
 openBtn.addEventListener("click", () => fileInput.click());
+topOpenBtn.addEventListener("click", () => fileInput.click());
 
 fileInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
@@ -681,9 +686,13 @@ toggleSplitBtn.addEventListener("click", () => {
   setStatus(statusText, "Split view toggled.");
 });
 
-targetMaskBtn.addEventListener("click", () => {
+function toggleTargetMask() {
   const showing = viewer.toggleTargetMask();
+
   targetMaskBtn.classList.toggle("btn-accent", showing);
+  topTargetMaskBtn.classList.toggle("top-action-accent", showing);
+  targetMaskBtn.setAttribute("aria-pressed", String(showing));
+  topTargetMaskBtn.setAttribute("aria-pressed", String(showing));
 
   setStatus(
     statusText,
@@ -691,7 +700,46 @@ targetMaskBtn.addEventListener("click", () => {
       ? "Target Mask shown. Red/magenta areas receive more cleanup."
       : "Target Mask hidden."
   );
+}
+
+targetMaskBtn.addEventListener("click", toggleTargetMask);
+topTargetMaskBtn.addEventListener("click", toggleTargetMask);
+
+infoBtn.addEventListener("click", () => {
+  setStatus(
+    statusText,
+    "CosmicV EdgeCrunch Darkroom Web V1.0 · local browser processing · no image uploads · free, no account, no ads."
+  );
 });
+
+function updateFullscreenButton() {
+  fullscreenBtn.textContent = document.fullscreenElement
+    ? "Exit Fullscreen"
+    : "F11 Fullscreen";
+  fullscreenBtn.classList.toggle(
+    "top-action-accent",
+    Boolean(document.fullscreenElement)
+  );
+}
+
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch (error) {
+    console.error(error);
+    setStatus(
+      statusText,
+      "Fullscreen could not be opened here. Your browser's F11 key can still toggle browser fullscreen."
+    );
+  }
+}
+
+fullscreenBtn.addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", updateFullscreenButton);
 
 swapBtn.addEventListener("click", () => {
   viewer.swapImages();
@@ -962,6 +1010,11 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     saveAsMenu.classList.add("hidden");
   }
+
+  if (event.key === "F11") {
+    event.preventDefault();
+    toggleFullscreen();
+  }
 });
 
 for (const eventName of ["dragenter", "dragover", "drop"]) {
@@ -1000,6 +1053,7 @@ markPreset("Balanced");
 updateTransformStatus();
 drawHueWheel();
 updateBusyUi();
+updateFullscreenButton();
 
 setStatus(
   statusText,
